@@ -36,6 +36,15 @@ button{padding:6px 12px;border:0;border-radius:6px;background:#2457d6;color:#fff
 <h2>4. Historial (cuadradas y resueltas)</h2>
 <div id="hist"></div>
 
+<h2>5. Mantenimiento (limpieza mensual)</h2>
+<div class="box">
+ <button onclick="respaldo()">1. Descargar respaldo (Excel)</button>
+ <button onclick="vaciar()" style="background:#c0392b">2. Vaciar datos</button>
+ <label><input type="checkbox" id="incl"> incluir también las diferencias pendientes</label>
+</div>
+<p id="mant" class="m"></p>
+
+
 <script>
 const SUPABASE_URL='https://tozolgerkzijtooeefvz.supabase.co', SUPABASE_KEY='sb_publishable_yuWI78_EvDsj-2Zo3gn8ng_q8ricFSa';
 // limpia espacios, la barra final o un /rest/v1 pegado por error
@@ -215,5 +224,43 @@ async function resolver(oc){
   await db.from('ordenes').update({estado:'resuelta',fecha_resuelta:new Date().toISOString(),nota}).eq('oc',oc);
   cargar();
 }
+// ---- Mantenimiento: respaldo en Excel y limpieza ----
+let respaldoListo=false;
+async function todo(t){let out=[];for(let p=0;;p+=1000){const {data,error}=await db.from(t).select('*').range(p,p+999);if(error)throw error;out=out.concat(data);if(data.length<1000)break}return out}
+const del=async q=>{const {error}=await q;if(error)throw error};
+async function respaldo(){
+  try{
+    const T=['ordenes','wms_asn','erp_lineas','detalle','vinculos'], n={}, wb=XLSX.utils.book_new();
+    for(const t of T){
+      const d=await todo(t); n[t]=d.length;
+      const rows=d.map(r=>Object.fromEntries(Object.entries(r).map(([k,v])=>[k,v!==null&&typeof v==='object'?JSON.stringify(v):v])));
+      XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),t);
+    }
+    XLSX.writeFile(wb,`respaldo_conciliacion_${new Date().toISOString().slice(0,10)}.xlsx`);
+    respaldoListo=true;
+    $('#mant').textContent='Respaldo descargado ('+T.map(t=>t+': '+n[t]).join(', ')+'). Cópialo a tu flash antes de vaciar.';
+  }catch(e){alert(e.message||JSON.stringify(e))}
+}
+async function vaciar(){
+  if(!respaldoListo) return alert('Primero pulsa "Descargar respaldo" y guarda el archivo.');
+  const todoPend=$('#incl').checked;
+  const msg=todoPend?'Se borrarán TODOS los datos, incluidas las diferencias pendientes.':'Se borrarán las OC cuadradas y resueltas. Las pendientes se conservan.';
+  if(prompt(msg+'\n\nEscribe VACIAR para confirmar:')!=='VACIAR') return;
+  try{
+    if(todoPend){
+      await del(db.from('vinculos').delete().gte('id',0)); await del(db.from('detalle').delete().gte('id',0));
+      await del(db.from('erp_lineas').delete().gte('id',0)); await del(db.from('wms_asn').delete().neq('asn',''));
+      await del(db.from('ordenes').delete().neq('oc',''));
+    }else{
+      const ocs=(await todo('ordenes')).filter(o=>o.estado!=='con_diferencia').map(o=>o.oc);
+      for(let i=0;i<ocs.length;i+=40){const ch=ocs.slice(i,i+40);
+        await del(db.from('detalle').delete().in('oc',ch)); await del(db.from('erp_lineas').delete().in('oc',ch));
+        await del(db.from('wms_asn').delete().in('oc',ch)); await del(db.from('vinculos').delete().in('oc_erp',ch));
+        await del(db.from('ordenes').delete().in('oc',ch));}
+    }
+    respaldoListo=false; $('#mant').textContent='Datos vaciados.'; cargar();
+  }catch(e){alert(e.message||JSON.stringify(e))}
+}
+
 cargar();
 </script></body></html>
