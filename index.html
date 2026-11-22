@@ -23,6 +23,7 @@ button{padding:6px 12px;border:0;border-radius:6px;background:#2457d6;color:#fff
 <p id="estado" class="m"></p>
 
 <h2>2. Diferencias pendientes (ERP)</h2>
+<p class="m">Haz clic en una OC para ver sus productos en ERP (código, descripción y cantidad).</p>
 <div id="pend"></div>
 
 <h2>3. Cruzar con el desglose de WMS</h2>
@@ -37,7 +38,8 @@ button{padding:6px 12px;border:0;border-radius:6px;background:#2457d6;color:#fff
 
 <script>
 const SUPABASE_URL='https://tozolgerkzijtooeefvz.supabase.co', SUPABASE_KEY='sb_publishable_yuWI78_EvDsj-2Zo3gn8ng_q8ricFSa';
-const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+// limpia espacios, la barra final o un /rest/v1 pegado por error
+const db=supabase.createClient(SUPABASE_URL.trim().replace(/\/rest\/v1.*$/,'').replace(/\/+$/,''),SUPABASE_KEY.trim());
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 // deja solo el código de barras: '7500435132350-SALA-...' o '="7500435146241"' -> '7500435132350'
@@ -108,9 +110,23 @@ function tabla(a,pend){
   if(!a.length) return '<p class="m">Nada por aquí.</p>';
   const head=pend?'<th>Diferencia</th><th></th>':'<th>Estado</th><th>Resuelta</th><th>Nota</th>';
   return '<table><tr><th>OC</th><th>Artículos WMS</th><th>Artículos ERP</th>'+head+'</tr>'+a.map(o=>
-    `<tr class="${pend?'bad':''}"><td>${esc(o.oc)}</td><td>${o.art_wms??'—'}</td><td>${o.art_erp}</td>`+
-    (pend?`<td>${esc(o.tipo_dif)}</td><td><button onclick="resolver('${esc(o.oc)}')">Marcar resuelta</button></td>`
+    `<tr class="${pend?'bad':''}" ${pend?`style="cursor:pointer" title="Clic para ver los productos en ERP" onclick="detalleOC('${esc(o.oc)}',this)"`:''}><td>${esc(o.oc)}</td><td>${o.art_wms??'—'}</td><td>${o.art_erp}</td>`+
+    (pend?`<td>${esc(o.tipo_dif)}</td><td><button onclick="event.stopPropagation();resolver('${esc(o.oc)}')">Marcar resuelta</button></td>`
          :`<td>${esc(o.estado)}</td><td>${(o.fecha_resuelta||'').slice(0,10)}</td><td>${esc(o.nota)}</td>`)+'</tr>').join('')+'</table>';
+}
+
+async function detalleOC(oc,tr){
+  const nx=tr.nextElementSibling;
+  if(nx&&nx.classList.contains('det')){nx.remove();return}
+  const [el,dt]=await Promise.all([traer('erp_lineas','oc',[oc]),traer('detalle','oc',[oc])]);
+  const sobra=new Set(dt.filter(x=>x.resultado==='SOBRA EN ERP'||x.resultado==='Vinculado').map(x=>x.articulo));
+  const E={};
+  el.forEach(x=>{const e=E[x.articulo]??={d:x.descripcion,c:0,f:new Set()};e.c+=+x.cantidad;e.f.add(String(x.fecha).slice(0,10))});
+  const filas=Object.entries(E).sort((a,b)=>sobra.has(b[0])-sobra.has(a[0]));
+  const r=document.createElement('tr'); r.className='det';
+  r.innerHTML=`<td colspan="5"><b>Productos de ${esc(oc)} en ERP</b> ${sobra.size?'':'<span class="m">(para ver cuáles sobran exactamente, cruza el desglose de WMS en el paso 3)</span>'}<table><tr><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Fecha ERP</th><th></th></tr>`+
+    filas.map(([k,v])=>`<tr class="${sobra.has(k)?'bad':''}"><td>${k}</td><td>${esc(v.d)}</td><td>${v.c}</td><td>${[...v.f].join(', ')}</td><td>${sobra.has(k)?'Sobra en ERP':''}</td></tr>`).join('')+'</table></td>';
+  tr.after(r);
 }
 
 async function cargar(){
