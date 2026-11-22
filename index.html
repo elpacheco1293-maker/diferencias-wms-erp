@@ -20,6 +20,7 @@ button{padding:6px 12px;border:0;border-radius:6px;background:#2457d6;color:#fff
  <label>Kardex (ERP) .xlsx <input type="file" id="f2" accept=".xlsx,.xls"></label>
  <button onclick="comparar()">Comparar</button>
 </div>
+<p id="estado" class="m"></p>
 
 <h2>2. Diferencias pendientes (ERP)</h2>
 <div id="pend"></div>
@@ -43,7 +44,7 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const norm=v=>{const m=String(v??'').match(/\d{8,14}/);return m?m[0]:String(v??'').trim()};
 const csv=f=>new Promise(r=>Papa.parse(f,{header:true,skipEmptyLines:true,complete:x=>r(x.data)}));
 async function xls(f){
-  const wb=XLSX.read(await f.arrayBuffer());
+  const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
   const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
   const i=rows.findIndex(r=>r[0]==='Fecha'), h=rows[i];
   return rows.slice(i+1).filter(r=>r[1]).map(r=>Object.fromEntries(h.map((k,j)=>[k,r[j]])));
@@ -71,8 +72,10 @@ async function subir(t,rows,conf){
 async function comparar(){
   const a=$('#f1').files[0], b=$('#f2').files[0];
   if(!a||!b) return alert('Sube el IBS y el Kardex');
+  $('#estado').textContent='Procesando…';
   try{
     const ibs=await csv(a), erp=await xls(b);
+    $('#estado').textContent=`Leídos: ${ibs.length} filas del IBS y ${erp.length} filas del Kardex. Guardando…`;
     const A={}; // un registro por ASN
     ibs.forEach(r=>{const oc=(r['Números de OC']||'').trim(),asn=(r['Nro ASN']||'').trim();
       if(oc&&asn) A[asn]={asn,oc,articulos:+r['Número de artículos']||0,fecha_wms:r['Fe y Hr Crea']||''}});
@@ -96,8 +99,9 @@ async function comparar(){
         tipo=aw===null?'Está en ERP, no en WMS':ae===0?'No replicó en ERP':ae<aw?'ERP tiene menos artículos':'ERP tiene más artículos'}
       return {oc,art_wms:aw,art_erp:ae,estado,tipo_dif:tipo}});
     await subir('ordenes',ords,'oc');
+    $('#estado').textContent=`Listo: ${ords.length} OC revisadas (${ords.filter(o=>o.estado==='cuadrada').length} cuadradas, ${ords.filter(o=>o.estado==='con_diferencia').length} con diferencia, ${done.size} ya resueltas omitidas). IBS: ${ibs.length} filas, Kardex: ${erp.length} filas.`;
     cargar();
-  }catch(e){alert(e.message)}
+  }catch(e){$('#estado').textContent='Error: '+(e.message||JSON.stringify(e));alert(e.message||JSON.stringify(e))}
 }
 
 function tabla(a,pend){
