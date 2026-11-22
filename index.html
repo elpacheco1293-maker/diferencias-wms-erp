@@ -84,24 +84,40 @@ async function comparar(){
     const Q={}; // un registro por OC + artículo + fecha/hora
     erp.forEach(r=>{const art=norm(r.Articulo),fe=String(r.Fecha||''),k=r.Documento+'|'+art+'|'+fe;
       Q[k]??={oc:r.Documento,articulo:art,descripcion:r.Descripcion,cantidad:0,fecha:fe}; Q[k].cantidad+=+r.Cantidad||0});
-    await subir('wms_asn',Object.values(A),'asn');
-    await subir('erp_lineas',Object.values(Q),'oc,articulo,fecha');
     const ocs=[...new Set([...Object.values(A).map(x=>x.oc),...Object.values(Q).map(x=>x.oc)])];
     const ex=await traer('ordenes','oc',ocs);
-    const done=new Set(ex.filter(o=>o.estado==='resuelta').map(o=>o.oc));
+    const EX=Object.fromEntries(ex.map(o=>[o.oc,o]));
+    const HU=oc=>EX[oc]?.huella||{asn:[],art:[]};
+    // una OC cuadrada que recibe ASN o artículos que no conocía se reabre para revisarla
+    const R=new Set();
+    ex.filter(o=>o.estado==='cuadrada'&&o.huella).forEach(o=>{
+      if(Object.values(A).some(x=>x.oc===o.oc&&!o.huella.asn.includes(x.asn))||Object.values(Q).some(x=>x.oc===o.oc&&!o.huella.art.includes(x.articulo))) R.add(o.oc)});
+    // se omiten las ya resueltas y las cuadradas que no cambiaron
+    const done=new Set(ex.filter(o=>o.estado==='resuelta'||(o.estado==='cuadrada'&&!R.has(o.oc))).map(o=>o.oc));
     const todos=ocs.filter(oc=>!done.has(oc));
+    await subir('wms_asn',Object.values(A).filter(x=>!done.has(x.oc)&&!HU(x.oc).asn.includes(x.asn)),'asn');
+    await subir('erp_lineas',Object.values(Q).filter(x=>!done.has(x.oc)&&!HU(x.oc).art.includes(x.articulo)),'oc,articulo,fecha');
     const asn=await traer('wms_asn','oc',todos), lin=await traer('erp_lineas','oc',todos);
-    const W={},E={};
-    asn.forEach(x=>W[x.oc]=(W[x.oc]||0)+x.articulos);
+    const W={},E={},AS={};
+    asn.forEach(x=>{W[x.oc]=(W[x.oc]||0)+x.articulos;(AS[x.oc]??=[]).push(x.asn)});
     lin.forEach(x=>(E[x.oc]??=new Set()).add(x.articulo));
     const ords=todos.map(oc=>{
-      const aw=W[oc]??null, ae=E[oc]?E[oc].size:0;
+      const o=EX[oc], reab=R.has(oc), h=HU(oc);
+      const bw=reab?(o.art_wms||0):(o?.base_wms||0), be=reab?(o.art_erp||0):(o?.base_erp||0);
+      const aw=(W[oc]===undefined&&bw===0)?null:(W[oc]||0)+bw, ae=(E[oc]?E[oc].size:0)+be;
       let estado='cuadrada', tipo=null;
       if(aw!==ae){estado='con_diferencia';
         tipo=aw===null?'Está en ERP, no en WMS':ae===0?'No replicó en ERP':ae<aw?'ERP tiene menos artículos':'ERP tiene más artículos'}
-      return {oc,art_wms:aw,art_erp:ae,estado,tipo_dif:tipo}});
+      const extra=estado==='cuadrada'
+        ?{base_wms:0,base_erp:0,huella:{asn:[...new Set([...h.asn,...(AS[oc]||[])])],art:[...new Set([...h.art,...(E[oc]||[])])]}}
+        :{base_wms:bw,base_erp:be,huella:(h.asn.length||h.art.length)?h:null};
+      return {oc,art_wms:aw,art_erp:ae,estado,tipo_dif:tipo,...extra}});
     await subir('ordenes',ords,'oc');
-    $('#estado').textContent=`Listo: ${ords.length} OC revisadas (${ords.filter(o=>o.estado==='cuadrada').length} cuadradas, ${ords.filter(o=>o.estado==='con_diferencia').length} con diferencia, ${done.size} ya resueltas omitidas). IBS: ${ibs.length} filas, Kardex: ${erp.length} filas.`;
+    // de las que cuadraron solo queda el resumen en ordenes; se borra su detalle
+    const cuad=ords.filter(o=>o.estado==='cuadrada').map(o=>o.oc);
+    for(let i=0;i<cuad.length;i+=40){const ch=cuad.slice(i,i+40);
+      await db.from('wms_asn').delete().in('oc',ch); await db.from('erp_lineas').delete().in('oc',ch)}
+    $('#estado').textContent=`Listo: ${ords.length} OC revisadas (${ords.filter(o=>o.estado==='cuadrada').length} cuadradas, ${ords.filter(o=>o.estado==='con_diferencia').length} con diferencia, ${done.size} ya cuadradas o resueltas omitidas, ${R.size} reabiertas por movimientos nuevos). IBS: ${ibs.length} filas, Kardex: ${erp.length} filas.`;
     cargar();
   }catch(e){$('#estado').textContent='Error: '+(e.message||JSON.stringify(e));alert(e.message||JSON.stringify(e))}
 }
