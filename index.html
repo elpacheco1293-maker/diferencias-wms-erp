@@ -36,7 +36,7 @@ button{padding:6px 12px;border:0;border-radius:6px;background:#2457d6;color:#fff
 <div id="hist"></div>
 
 <script>
-const SUPABASE_URL='https://tozolgerkzijtooeefvz.supabase.co/rest/v1/', SUPABASE_KEY='sb_publishable_yuWI78_EvDsj-2Zo3gn8ng_q8ricFSa';
+const SUPABASE_URL='https://tozolgerkzijtooeefvz.supabase.co', SUPABASE_KEY='sb_publishable_yuWI78_EvDsj-2Zo3gn8ng_q8ricFSa';
 const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
