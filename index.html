@@ -35,7 +35,7 @@ button{padding:6px 12px;border:0;border-radius:6px;background:#2457d6;color:#fff
 <div id="hist"></div>
 
 <script>
-const SUPABASE_URL='https://tozolgerkzijtooeefvz.supabase.co', SUPABASE_KEY='sb_publishable_yuWI78_EvDsj-2Zo3gn8ng_q8ricFSa';
+const SUPABASE_URL='PEGA_AQUI_TU_URL', SUPABASE_KEY='PEGA_AQUI_TU_ANON_KEY';
 const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -56,7 +56,7 @@ async function comparar(){
   const W={}; // OC -> nro de artículos en WMS
   ibs.forEach(r=>{const oc=(r['Números de OC']||'').trim(); if(oc) W[oc]=(W[oc]||0)+(+r['Número de artículos']||0)});
   const L={}; // OC -> artículos distintos en ERP
-  erp.forEach(r=>{const o=L[r.Documento]??={},k=norm(r.Articulo);o[k]??={d:r.Descripcion,c:0};o[k].c+=+r.Cantidad||0});
+  erp.forEach(r=>{const o=L[r.Documento]??={},k=norm(r.Articulo);o[k]??={d:r.Descripcion,c:0,f:String(r.Fecha||'').slice(0,10)};o[k].c+=+r.Cantidad||0});
   const {data:res}=await db.from('ordenes').select('oc').eq('estado','resuelta');
   const done=new Set((res||[]).map(x=>x.oc));
   const ords=[], lin=[];
@@ -66,7 +66,7 @@ async function comparar(){
     if(aw!==ae){estado='con_diferencia';
       tipo=aw===null?'Está en ERP, no en WMS':ae===0?'No replicó en ERP':ae<aw?'ERP tiene menos artículos':'ERP tiene más artículos'}
     ords.push({oc,art_wms:aw,art_erp:ae,estado,tipo_dif:tipo});
-    if(estado==='con_diferencia'&&L[oc]) Object.entries(L[oc]).forEach(([k,v])=>lin.push({oc,articulo:k,descripcion:v.d,cantidad:v.c}));
+    if(estado==='con_diferencia'&&L[oc]) Object.entries(L[oc]).forEach(([k,v])=>lin.push({oc,articulo:k,descripcion:v.d,cantidad:v.c,fecha:v.f}));
   });
   let e1=(await db.from('ordenes').upsert(ords)).error; if(e1) return alert(e1.message);
   const dif=ords.filter(o=>o.estado==='con_diferencia').map(o=>o.oc);
@@ -91,7 +91,8 @@ async function cargar(){
   $('#hist').innerHTML=tabla(data.filter(o=>o.estado!=='con_diferencia'),false);
 }
 
-async function desglose(){
+const CT={};
+async function desglose(guardar=true){
   const f=$('#f3').files[0]; if(!f) return alert('Sube el IBSH');
   const rows=await csv(f), by={};
   rows.forEach(r=>{const oc=(r['Nro OC']||'').trim(),k=norm(r['Producto']),o=by[oc]??={};
@@ -101,18 +102,35 @@ async function desglose(){
     const {data:o}=await db.from('ordenes').select('estado').eq('oc',oc).maybeSingle();
     if(!o||o.estado!=='con_diferencia'){html+=`<p class="m">${esc(oc)}: no está pendiente (cuadrada, resuelta o sin cargar en el paso 1).</p>`;continue}
     const {data:el}=await db.from('erp_lineas').select('*').eq('oc',oc);
+    const {data:vl}=await db.from('vinculos').select('*').eq('oc_erp',oc);
+    const V=Object.fromEntries((vl||[]).map(x=>[x.articulo,x]));
     const E=Object.fromEntries((el||[]).map(x=>[x.articulo,x])), W=by[oc];
     const filas=[...new Set([...Object.keys(W),...Object.keys(E)])].map(k=>{
       const w=W[k],e=E[k];
-      const r=!w?'Está en ERP, falta en WMS':!e?'NO REPLICÓ EN ERP':w.c!==+e.cantidad?'Cantidad distinta':'OK';
-      return {oc,articulo:k,descripcion:w?w.d:e.descripcion,cant_wms:w?w.c:null,cant_erp:e?+e.cantidad:null,resultado:r}});
-    await db.from('detalle').insert(filas);
-    const mal=filas.filter(x=>x.resultado!=='OK').length;
-    html+=`<h3>${esc(oc)} — ${mal?mal+' producto(s) con problema':'todo coincide, puedes marcarla resuelta'}</h3><table><tr><th>Artículo</th><th>Descripción</th><th>WMS recibido</th><th>ERP</th><th>Resultado</th></tr>`+
-      filas.sort((a,b)=>(a.resultado==='OK')-(b.resultado==='OK')).map(x=>
-      `<tr class="${x.resultado==='OK'?'ok':'bad'}"><td>${x.articulo}</td><td>${esc(x.descripcion)}</td><td>${x.cant_wms??'—'}</td><td>${x.cant_erp??'—'}</td><td>${x.resultado}</td></tr>`).join('')+'</table>';
+      let r=!w?'SOBRA EN ERP':!e?'NO REPLICÓ EN ERP':w.c!==+e.cantidad?'Cantidad distinta':'OK';
+      if(r==='SOBRA EN ERP'&&V[k]) r='Vinculado';
+      const x={oc,articulo:k,descripcion:w?w.d:e.descripcion,cant_wms:w?w.c:null,cant_erp:e?+e.cantidad:null,resultado:r,fecha:e?e.fecha:null};
+      CT[oc+'|'+k]=x; return x});
+    if(guardar) await db.from('detalle').insert(filas.map(({fecha,...x})=>x));
+    const rank=x=>x.resultado==='OK'?2:x.resultado==='Vinculado'?1:0;
+    const mal=filas.filter(x=>rank(x)===0).length;
+    const celda=x=>x.resultado==='SOBRA EN ERP'
+      ?`<input id="v_${esc(oc)}_${x.articulo}" value="${esc(oc)}" size="13" title="OC correcta con la que entró"> <input id="n_${esc(oc)}_${x.articulo}" placeholder="nota" size="16"> <button onclick="vincular('${esc(oc)}','${x.articulo}')">Vincular</button>`
+      :x.resultado==='Vinculado'?`Vinculado a ${esc(V[x.articulo].oc_wms)}${V[x.articulo].nota?' — '+esc(V[x.articulo].nota):''}`:x.resultado;
+    html+=`<h3>${esc(oc)} — ${mal?mal+' producto(s) con problema':'todo coincide o está vinculado, puedes marcarla resuelta'}</h3><table><tr><th>Artículo</th><th>Descripción</th><th>WMS recibido</th><th>ERP</th><th>Fecha ERP</th><th>Resultado</th></tr>`+
+      filas.sort((a,b)=>rank(a)-rank(b)).map(x=>
+      `<tr class="${x.resultado==='OK'?'ok':x.resultado==='Vinculado'?'warn':'bad'}"><td>${x.articulo}</td><td>${esc(x.descripcion)}</td><td>${x.cant_wms??'—'}</td><td>${x.cant_erp??'—'}</td><td>${esc(x.fecha)}</td><td>${celda(x)}</td></tr>`).join('')+'</table>';
   }
   $('#cruce').innerHTML=html;
+}
+
+async function vincular(oc,art){
+  const id=oc+'_'+art, x=CT[oc+'|'+art];
+  const oc_wms=document.getElementById('v_'+id).value.trim(), nota=document.getElementById('n_'+id).value.trim();
+  if(!oc_wms) return alert('Escribe la OC correcta');
+  const {error}=await db.from('vinculos').insert({oc_erp:oc,articulo:art,descripcion:x.descripcion,cant_erp:x.cant_erp,oc_wms,nota});
+  if(error) return alert(error.message);
+  desglose(false);
 }
 
 async function resolver(oc){
