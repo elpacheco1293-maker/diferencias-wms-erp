@@ -115,23 +115,35 @@ function tabla(a,pend){
          :`<td>${esc(o.estado)}</td><td>${(o.fecha_resuelta||'').slice(0,10)}</td><td>${esc(o.nota)}</td>`)+'</tr>').join('')+'</table>';
 }
 
+const ORD={};
 async function detalleOC(oc,tr){
   const nx=tr.nextElementSibling;
   if(nx&&nx.classList.contains('det')){nx.remove();return}
-  const [el,dt]=await Promise.all([traer('erp_lineas','oc',[oc]),traer('detalle','oc',[oc])]);
-  const sobra=new Set(dt.filter(x=>x.resultado==='SOBRA EN ERP'||x.resultado==='Vinculado').map(x=>x.articulo));
+  const t=(ORD[oc]||{}).tipo_dif||'';
+  const [el,dt,vl]=await Promise.all([traer('erp_lineas','oc',[oc]),traer('detalle','oc',[oc]),traer('vinculos','oc_erp',[oc])]);
+  const V=Object.fromEntries(vl.map(x=>[x.articulo,x]));
+  const todo=t==='Está en ERP, no en WMS';
+  const sobra=new Set(todo?el.map(x=>x.articulo):dt.filter(x=>x.resultado==='SOBRA EN ERP').map(x=>x.articulo));
   const E={};
   el.forEach(x=>{const e=E[x.articulo]??={d:x.descripcion,c:0,f:new Set()};e.c+=+x.cantidad;e.f.add(String(x.fecha).slice(0,10))});
   const filas=Object.entries(E).sort((a,b)=>sobra.has(b[0])-sobra.has(a[0]));
+  filas.forEach(([k,v])=>CT[oc+'|'+k]={descripcion:v.d,cant_erp:v.c});
+  const aviso=!filas.length?'No hay productos guardados de esta OC en ERP: vuelve a cargar el Kardex en el paso 1.'
+    :todo?'Toda esta OC sobra en ERP porque no existe en WMS. Si en WMS entró con otra OC, escríbela y pulsa Vincular.'
+    :t==='ERP tiene más artículos'?(sobra.size?'':'ERP tiene más artículos que WMS. Para saber exactamente cuáles sobran, cruza el desglose (IBSH) de esta OC en el paso 3.')
+    :'Estos son los productos que sí están en ERP. Para ver cuáles faltan, cruza el desglose (IBSH) en el paso 3.';
+  const celda=k=>V[k]?`Vinculado a ${esc(V[k].oc_wms)}${V[k].nota?' — '+esc(V[k].nota):''}`
+    :sobra.has(k)?`<b>Sobra en ERP</b> <input id="v_${esc(oc)}_${k}" value="${esc(oc)}" size="13" title="OC correcta"> <input id="n_${esc(oc)}_${k}" placeholder="nota" size="14"> <button onclick="event.stopPropagation();vincular('${esc(oc)}','${k}')">Vincular</button>`:'';
   const r=document.createElement('tr'); r.className='det';
-  r.innerHTML=`<td colspan="5"><b>Productos de ${esc(oc)} en ERP</b> ${sobra.size?'':'<span class="m">(para ver cuáles sobran exactamente, cruza el desglose de WMS en el paso 3)</span>'}<table><tr><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Fecha ERP</th><th></th></tr>`+
-    filas.map(([k,v])=>`<tr class="${sobra.has(k)?'bad':''}"><td>${k}</td><td>${esc(v.d)}</td><td>${v.c}</td><td>${[...v.f].join(', ')}</td><td>${sobra.has(k)?'Sobra en ERP':''}</td></tr>`).join('')+'</table></td>';
+  r.innerHTML=`<td colspan="5"><b>Productos de ${esc(oc)} en ERP</b> <span class="m">${aviso}</span>`+(filas.length?`<table><tr><th>Código</th><th>Descripción</th><th>Cantidad</th><th>Fecha ERP</th><th></th></tr>`+
+    filas.map(([k,v])=>`<tr class="${V[k]?'warn':sobra.has(k)?'bad':''}"><td>${k}</td><td>${esc(v.d)}</td><td>${v.c}</td><td>${[...v.f].join(', ')}</td><td>${celda(k)}</td></tr>`).join('')+'</table>':'')+'</td>';
   tr.after(r);
 }
 
 async function cargar(){
   const {data,error}=await db.from('ordenes').select('*').order('oc');
   if(error) return alert(error.message);
+  data.forEach(o=>ORD[o.oc]=o);
   $('#pend').innerHTML=tabla(data.filter(o=>o.estado==='con_diferencia'),true);
   $('#hist').innerHTML=tabla(data.filter(o=>o.estado!=='con_diferencia'),false);
 }
@@ -177,7 +189,9 @@ async function vincular(oc,art){
   if(!oc_wms) return alert('Escribe la OC correcta');
   const {error}=await db.from('vinculos').insert({oc_erp:oc,articulo:art,descripcion:x.descripcion,cant_erp:x.cant_erp,oc_wms,nota});
   if(error) return alert(error.message);
-  desglose(false);
+  const det=document.querySelector('.det');
+  if(det){const tr=det.previousElementSibling;det.remove();detalleOC(oc,tr)}
+  if($('#f3').files[0]) desglose(false);
 }
 
 async function resolver(oc){
