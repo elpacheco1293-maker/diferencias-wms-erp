@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Conciliación WMS ↔ ERP</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+body{font-family:system-ui,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#1d2433}
+h1{font-size:22px}h2{font-size:16px;margin:28px 0 8px;border-bottom:1px solid #d7dce5;padding-bottom:4px}
+.box{background:#f4f6fa;border-radius:8px;padding:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}th,td{border:1px solid #d7dce5;padding:5px 8px;text-align:left}th{background:#eef1f6}
+button{padding:6px 12px;border:0;border-radius:6px;background:#2457d6;color:#fff;cursor:pointer}
+.m{color:#6b7280}.bad{background:#fde8e8}.ok{background:#e8f6ec}.warn{background:#fff4d6}
+</style></head><body>
+<h1>Conciliación WMS ↔ ERP</h1>
+
+<h2>1. Comparar artículos por OC</h2>
+<div class="box">
+ <label>IBS (WMS) .csv <input type="file" id="f1" accept=".csv"></label>
+ <label>Kardex (ERP) .xlsx <input type="file" id="f2" accept=".xlsx,.xls"></label>
+ <button onclick="comparar()">Comparar</button>
+</div>
+
+<h2>2. Diferencias pendientes (ERP)</h2>
+<div id="pend"></div>
+
+<h2>3. Cruzar con el desglose de WMS</h2>
+<div class="box">
+ <label>IBSH (WMS desglosado) .csv <input type="file" id="f3" accept=".csv"></label>
+ <button onclick="desglose()">Cruzar con ERP</button>
+</div>
+<div id="cruce"></div>
+
+<h2>4. Historial (cuadradas y resueltas)</h2>
+<div id="hist"></div>
+
+<script>
+const SUPABASE_URL='PEGA_AQUI_TU_URL', SUPABASE_KEY='PEGA_AQUI_TU_ANON_KEY';
+const db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+// deja solo el código de barras: '7500435132350-SALA-...' o '="7500435146241"' -> '7500435132350'
+const norm=v=>{const m=String(v??'').match(/\d{8,14}/);return m?m[0]:String(v??'').trim()};
+const csv=f=>new Promise(r=>Papa.parse(f,{header:true,skipEmptyLines:true,complete:x=>r(x.data)}));
+async function xls(f){
+  const wb=XLSX.read(await f.arrayBuffer());
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+  const i=rows.findIndex(r=>r[0]==='Fecha'), h=rows[i];
+  return rows.slice(i+1).filter(r=>r[1]).map(r=>Object.fromEntries(h.map((k,j)=>[k,r[j]])));
+}
+
+async function comparar(){
+  const a=$('#f1').files[0], b=$('#f2').files[0];
+  if(!a||!b) return alert('Sube el IBS y el Kardex');
+  const ibs=await csv(a), erp=await xls(b);
+  const W={}; // OC -> nro de artículos en WMS
+  ibs.forEach(r=>{const oc=(r['Números de OC']||'').trim(); if(oc) W[oc]=(W[oc]||0)+(+r['Número de artículos']||0)});
+  const L={}; // OC -> artículos distintos en ERP
+  erp.forEach(r=>{const o=L[r.Documento]??={},k=norm(r.Articulo);o[k]??={d:r.Descripcion,c:0};o[k].c+=+r.Cantidad||0});
+  const {data:res}=await db.from('ordenes').select('oc').eq('estado','resuelta');
+  const done=new Set((res||[]).map(x=>x.oc));
+  const ords=[], lin=[];
+  [...new Set([...Object.keys(W),...Object.keys(L)])].filter(oc=>!done.has(oc)).forEach(oc=>{
+    const aw=W[oc]??null, ae=L[oc]?Object.keys(L[oc]).length:0;
+    let estado='cuadrada', tipo=null;
+    if(aw!==ae){estado='con_diferencia';
+      tipo=aw===null?'Está en ERP, no en WMS':ae===0?'No replicó en ERP':ae<aw?'ERP tiene menos artículos':'ERP tiene más artículos'}
+    ords.push({oc,art_wms:aw,art_erp:ae,estado,tipo_dif:tipo});
+    if(estado==='con_diferencia'&&L[oc]) Object.entries(L[oc]).forEach(([k,v])=>lin.push({oc,articulo:k,descripcion:v.d,cantidad:v.c}));
+  });
+  let e1=(await db.from('ordenes').upsert(ords)).error; if(e1) return alert(e1.message);
+  const dif=ords.filter(o=>o.estado==='con_diferencia').map(o=>o.oc);
+  if(dif.length) await db.from('erp_lineas').delete().in('oc',dif);
+  if(lin.length) await db.from('erp_lineas').insert(lin);
+  cargar();
+}
+
+function tabla(a,pend){
+  if(!a.length) return '<p class="m">Nada por aquí.</p>';
+  const head=pend?'<th>Diferencia</th><th></th>':'<th>Estado</th><th>Resuelta</th><th>Nota</th>';
+  return '<table><tr><th>OC</th><th>Artículos WMS</th><th>Artículos ERP</th>'+head+'</tr>'+a.map(o=>
+    `<tr class="${pend?'bad':''}"><td>${esc(o.oc)}</td><td>${o.art_wms??'—'}</td><td>${o.art_erp}</td>`+
+    (pend?`<td>${esc(o.tipo_dif)}</td><td><button onclick="resolver('${esc(o.oc)}')">Marcar resuelta</button></td>`
+         :`<td>${esc(o.estado)}</td><td>${(o.fecha_resuelta||'').slice(0,10)}</td><td>${esc(o.nota)}</td>`)+'</tr>').join('')+'</table>';
+}
+
+async function cargar(){
+  const {data,error}=await db.from('ordenes').select('*').order('oc');
+  if(error) return alert(error.message);
+  $('#pend').innerHTML=tabla(data.filter(o=>o.estado==='con_diferencia'),true);
+  $('#hist').innerHTML=tabla(data.filter(o=>o.estado!=='con_diferencia'),false);
+}
+
+async function desglose(){
+  const f=$('#f3').files[0]; if(!f) return alert('Sube el IBSH');
+  const rows=await csv(f), by={};
+  rows.forEach(r=>{const oc=(r['Nro OC']||'').trim(),k=norm(r['Producto']),o=by[oc]??={};
+    o[k]??={d:r['Descripcion'],c:0}; o[k].c+=+r['Cant Recib']||0});
+  let html='';
+  for(const oc of Object.keys(by)){
+    const {data:o}=await db.from('ordenes').select('estado').eq('oc',oc).maybeSingle();
+    if(!o||o.estado!=='con_diferencia'){html+=`<p class="m">${esc(oc)}: no está pendiente (cuadrada, resuelta o sin cargar en el paso 1).</p>`;continue}
+    const {data:el}=await db.from('erp_lineas').select('*').eq('oc',oc);
+    const E=Object.fromEntries((el||[]).map(x=>[x.articulo,x])), W=by[oc];
+    const filas=[...new Set([...Object.keys(W),...Object.keys(E)])].map(k=>{
+      const w=W[k],e=E[k];
+      const r=!w?'Está en ERP, falta en WMS':!e?'NO REPLICÓ EN ERP':w.c!==+e.cantidad?'Cantidad distinta':'OK';
+      return {oc,articulo:k,descripcion:w?w.d:e.descripcion,cant_wms:w?w.c:null,cant_erp:e?+e.cantidad:null,resultado:r}});
+    await db.from('detalle').insert(filas);
+    const mal=filas.filter(x=>x.resultado!=='OK').length;
+    html+=`<h3>${esc(oc)} — ${mal?mal+' producto(s) con problema':'todo coincide, puedes marcarla resuelta'}</h3><table><tr><th>Artículo</th><th>Descripción</th><th>WMS recibido</th><th>ERP</th><th>Resultado</th></tr>`+
+      filas.sort((a,b)=>(a.resultado==='OK')-(b.resultado==='OK')).map(x=>
+      `<tr class="${x.resultado==='OK'?'ok':'bad'}"><td>${x.articulo}</td><td>${esc(x.descripcion)}</td><td>${x.cant_wms??'—'}</td><td>${x.cant_erp??'—'}</td><td>${x.resultado}</td></tr>`).join('')+'</table>';
+  }
+  $('#cruce').innerHTML=html;
+}
+
+async function resolver(oc){
+  const nota=prompt('Nota de cómo se solucionó (opcional):'); if(nota===null) return;
+  await db.from('ordenes').update({estado:'resuelta',fecha_resuelta:new Date().toISOString(),nota}).eq('oc',oc);
+  cargar();
+}
+cargar();
+</script></body></html>
