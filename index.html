@@ -49,30 +49,55 @@ async function xls(f){
   return rows.slice(i+1).filter(r=>r[1]).map(r=>Object.fromEntries(h.map((k,j)=>[k,r[j]])));
 }
 
+async function traer(t,col,vals){
+  let out=[];
+  for(let i=0;i<vals.length;i+=40){
+    const ch=vals.slice(i,i+40);
+    for(let p=0;;p+=1000){
+      const {data,error}=await db.from(t).select('*').in(col,ch).range(p,p+999);
+      if(error) throw error; out=out.concat(data); if(data.length<1000) break;
+    }
+  }
+  return out;
+}
+async function subir(t,rows,conf){
+  for(let i=0;i<rows.length;i+=500){
+    const {error}=await db.from(t).upsert(rows.slice(i,i+500),{onConflict:conf});
+    if(error) throw error;
+  }
+}
+
+// Acumulativo: cada carga se suma a lo anterior. Recargar el mismo archivo no duplica nada.
 async function comparar(){
   const a=$('#f1').files[0], b=$('#f2').files[0];
   if(!a||!b) return alert('Sube el IBS y el Kardex');
-  const ibs=await csv(a), erp=await xls(b);
-  const W={}; // OC -> nro de artículos en WMS
-  ibs.forEach(r=>{const oc=(r['Números de OC']||'').trim(); if(oc) W[oc]=(W[oc]||0)+(+r['Número de artículos']||0)});
-  const L={}; // OC -> artículos distintos en ERP
-  erp.forEach(r=>{const o=L[r.Documento]??={},k=norm(r.Articulo);o[k]??={d:r.Descripcion,c:0,f:String(r.Fecha||'').slice(0,10)};o[k].c+=+r.Cantidad||0});
-  const {data:res}=await db.from('ordenes').select('oc').eq('estado','resuelta');
-  const done=new Set((res||[]).map(x=>x.oc));
-  const ords=[], lin=[];
-  [...new Set([...Object.keys(W),...Object.keys(L)])].filter(oc=>!done.has(oc)).forEach(oc=>{
-    const aw=W[oc]??null, ae=L[oc]?Object.keys(L[oc]).length:0;
-    let estado='cuadrada', tipo=null;
-    if(aw!==ae){estado='con_diferencia';
-      tipo=aw===null?'Está en ERP, no en WMS':ae===0?'No replicó en ERP':ae<aw?'ERP tiene menos artículos':'ERP tiene más artículos'}
-    ords.push({oc,art_wms:aw,art_erp:ae,estado,tipo_dif:tipo});
-    if(estado==='con_diferencia'&&L[oc]) Object.entries(L[oc]).forEach(([k,v])=>lin.push({oc,articulo:k,descripcion:v.d,cantidad:v.c,fecha:v.f}));
-  });
-  let e1=(await db.from('ordenes').upsert(ords)).error; if(e1) return alert(e1.message);
-  const dif=ords.filter(o=>o.estado==='con_diferencia').map(o=>o.oc);
-  if(dif.length) await db.from('erp_lineas').delete().in('oc',dif);
-  if(lin.length) await db.from('erp_lineas').insert(lin);
-  cargar();
+  try{
+    const ibs=await csv(a), erp=await xls(b);
+    const A={}; // un registro por ASN
+    ibs.forEach(r=>{const oc=(r['Números de OC']||'').trim(),asn=(r['Nro ASN']||'').trim();
+      if(oc&&asn) A[asn]={asn,oc,articulos:+r['Número de artículos']||0,fecha_wms:r['Fe y Hr Crea']||''}});
+    const Q={}; // un registro por OC + artículo + fecha/hora
+    erp.forEach(r=>{const art=norm(r.Articulo),fe=String(r.Fecha||''),k=r.Documento+'|'+art+'|'+fe;
+      Q[k]??={oc:r.Documento,articulo:art,descripcion:r.Descripcion,cantidad:0,fecha:fe}; Q[k].cantidad+=+r.Cantidad||0});
+    await subir('wms_asn',Object.values(A),'asn');
+    await subir('erp_lineas',Object.values(Q),'oc,articulo,fecha');
+    const ocs=[...new Set([...Object.values(A).map(x=>x.oc),...Object.values(Q).map(x=>x.oc)])];
+    const ex=await traer('ordenes','oc',ocs);
+    const done=new Set(ex.filter(o=>o.estado==='resuelta').map(o=>o.oc));
+    const todos=ocs.filter(oc=>!done.has(oc));
+    const asn=await traer('wms_asn','oc',todos), lin=await traer('erp_lineas','oc',todos);
+    const W={},E={};
+    asn.forEach(x=>W[x.oc]=(W[x.oc]||0)+x.articulos);
+    lin.forEach(x=>(E[x.oc]??=new Set()).add(x.articulo));
+    const ords=todos.map(oc=>{
+      const aw=W[oc]??null, ae=E[oc]?E[oc].size:0;
+      let estado='cuadrada', tipo=null;
+      if(aw!==ae){estado='con_diferencia';
+        tipo=aw===null?'Está en ERP, no en WMS':ae===0?'No replicó en ERP':ae<aw?'ERP tiene menos artículos':'ERP tiene más artículos'}
+      return {oc,art_wms:aw,art_erp:ae,estado,tipo_dif:tipo}});
+    await subir('ordenes',ords,'oc');
+    cargar();
+  }catch(e){alert(e.message)}
 }
 
 function tabla(a,pend){
@@ -104,7 +129,9 @@ async function desglose(guardar=true){
     const {data:el}=await db.from('erp_lineas').select('*').eq('oc',oc);
     const {data:vl}=await db.from('vinculos').select('*').eq('oc_erp',oc);
     const V=Object.fromEntries((vl||[]).map(x=>[x.articulo,x]));
-    const E=Object.fromEntries((el||[]).map(x=>[x.articulo,x])), W=by[oc];
+    const E={}; (el||[]).forEach(x=>{const e=E[x.articulo]??={articulo:x.articulo,descripcion:x.descripcion,cantidad:0,fechas:new Set()};e.cantidad+=+x.cantidad;e.fechas.add(String(x.fecha).slice(0,10))});
+    Object.values(E).forEach(e=>e.fecha=[...e.fechas].join(', '));
+    const W=by[oc];
     const filas=[...new Set([...Object.keys(W),...Object.keys(E)])].map(k=>{
       const w=W[k],e=E[k];
       let r=!w?'SOBRA EN ERP':!e?'NO REPLICÓ EN ERP':w.c!==+e.cantidad?'Cantidad distinta':'OK';
