@@ -121,9 +121,10 @@ async function comparar(){
     const A={};
     w.forEach(r=>{
       const oc=(r['Orden de compra']||'').trim(), prov=String(r['Código de artículo de proveedor']||'').trim(), c=nc(r['Cod Alternat'])||prov;
-      if(!oc||!c) return;
+      const rec=+r['Cantidad recibida']||0;
+      if(!oc||!c||rec===0) return;
       const k=oc+'|'+c; A[k]??={oc,codigo:c,descripcion:r['Descripcion'],codigo_prov:prov,solicitada:0,recibida:0};
-      A[k].solicitada+=+r['Cantidad solicitada']||0; A[k].recibida+=+r['Cantidad recibida']||0;
+      A[k].solicitada+=+r['Cantidad solicitada']||0; A[k].recibida+=rec;
     });
     const Q={};
     erp.forEach(r=>{
