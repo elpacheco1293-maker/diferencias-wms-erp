@@ -64,6 +64,7 @@ footer{margin-top:44px;text-align:center;color:#8a93a8;font-size:12px;letter-spa
  <input id="filtro" placeholder="Filtrar por OC, código o texto" size="34" oninput="pintar()">
  <span id="conteo" class="m"></span>
  <button onclick="exportarObs()">Exportar a Excel</button>
+ <button class="danger" onclick="descartar(vistas().map(o=>o.id))">Eliminar las mostradas</button>
 </div>
 <div id="espera" class="m"></div>
 <div id="pend"></div>
@@ -221,12 +222,15 @@ async function recalcular(ocs){
 
 // ---------- Pantallas ----------
 let OBS=[], CARGAS=[];
-function pintar(){
+function vistas(){
   const q=nd($('#filtro').value);
-  const L=OBS.filter(o=>!q||nd([o.oc,o.codigo,o.descripcion,o.tipo,o.detalle].join(' ')).includes(q));
+  return OBS.filter(o=>!q||nd([o.oc,o.codigo,o.descripcion,o.tipo,o.detalle].join(' ')).includes(q));
+}
+function pintar(){
+  const L=vistas();
   $('#conteo').textContent=`${L.length} observación(es) en ${new Set(L.map(o=>o.oc)).size} OC`;
   $('#pend').innerHTML=L.length?'<table><tr><th>OC</th><th>Código</th><th>Descripción</th><th>Observación</th><th>Solicitada</th><th>Recibida WMS</th><th>ERP</th><th></th></tr>'+
-    L.map(o=>`<tr class="bad"><td>${esc(o.oc)}</td><td>${esc(o.codigo)}</td><td>${esc(o.descripcion)}</td><td><b>${esc(o.tipo)}</b><br><span class="m">${esc(o.detalle)}</span></td><td>${fmt(o.cant_sol)}</td><td>${fmt(o.cant_rec)}</td><td>${fmt(o.cant_erp)}</td><td><button onclick="resolver(${o.id})">Resolver</button></td></tr>`).join('')+'</table>'
+    L.map(o=>`<tr class="bad"><td>${esc(o.oc)}</td><td>${esc(o.codigo)}</td><td>${esc(o.descripcion)}</td><td><b>${esc(o.tipo)}</b><br><span class="m">${esc(o.detalle)}</span></td><td>${fmt(o.cant_sol)}</td><td>${fmt(o.cant_rec)}</td><td>${fmt(o.cant_erp)}</td><td><button onclick="resolver(${o.id})">Resolver</button> <button class="danger" onclick="descartar([${o.id}])">Eliminar</button></td></tr>`).join('')+'</table>'
     :'<p class="m">Sin observaciones pendientes.</p>';
 }
 async function cargar(){
@@ -243,18 +247,25 @@ async function cargar(){
   $('#cargas').innerHTML=CARGAS.length?'<table><tr><th>Fecha</th><th>Tipo</th><th>Documento</th><th>Filas</th><th>OC</th><th></th></tr>'+
     CARGAS.map(c=>`<tr><td>${esc(String(c.creado).slice(0,16).replace('T',' '))}</td><td>${esc(c.tipo)}</td><td>${esc(c.nombre)}</td><td>${c.filas}</td><td>${(c.ocs||[]).length}</td><td><button class="danger" onclick="eliminarCarga(${c.id})">Eliminar</button></td></tr>`).join('')+'</table>':'<p class="m">Aún no hay documentos cargados.</p>';
 }
+async function cerrarObs(ids,nota){
+  const ahora=new Date().toISOString(), sel=OBS.filter(x=>ids.includes(x.id));
+  for(const ch of lotes(ids,200)) await del(db.from('observaciones').update({estado:'resuelta',nota,resuelta_en:ahora}).in('id',ch));
+  for(const oc of new Set(sel.map(o=>o.oc))){
+    const {data}=await db.from('observaciones').select('id').eq('oc',oc).eq('estado','pendiente');
+    if(!data.length){   // ya no quedan pendientes: la OC pasa al historial
+      await del(db.from('ordenes').update({estado:'resuelta',fecha_resuelta:ahora,nota,tipo_dif:null}).eq('oc',oc));
+      await del(db.from('oc_lineas').delete().eq('oc',oc)); await del(db.from('erp_lineas').delete().eq('oc',oc));
+    }
+  }
+}
 async function resolver(id){
   const nota=prompt('Nota de cómo se solucionó (opcional):'); if(nota===null) return;
-  try{
-    const o=OBS.find(x=>x.id===id), ahora=new Date().toISOString();
-    await del(db.from('observaciones').update({estado:'resuelta',nota,resuelta_en:ahora}).eq('id',id));
-    const {data}=await db.from('observaciones').select('id').eq('oc',o.oc).eq('estado','pendiente');
-    if(!data.length){
-      await del(db.from('ordenes').update({estado:'resuelta',fecha_resuelta:ahora,nota,tipo_dif:null}).eq('oc',o.oc));
-      await del(db.from('oc_lineas').delete().eq('oc',o.oc)); await del(db.from('erp_lineas').delete().eq('oc',o.oc));
-    }
-    cargar();
-  }catch(e){alert(e.message)}
+  try{await cerrarObs([id],nota); cargar()}catch(e){alert(e.message)}
+}
+async function descartar(ids){
+  if(!ids.length) return;
+  if(!confirm(`¿Eliminar ${ids.length} observación(es) de pendientes?\nNo volverán a aparecer al cargar más archivos.`)) return;
+  try{await cerrarObs(ids,'Eliminada manualmente'); cargar()}catch(e){alert(e.message)}
 }
 async function eliminarCarga(id){
   const c=CARGAS.find(x=>x.id===id); if(!c) return;
