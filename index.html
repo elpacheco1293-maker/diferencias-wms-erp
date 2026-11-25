@@ -59,7 +59,7 @@ footer{margin-top:44px;text-align:center;color:#8a93a8;font-size:12px;letter-spa
 </div>
 <p id="estado" class="m"></p>
 
-<h2>2. Observaciones pendientes</h2>
+<h2>2. Pendientes por cuadrar</h2>
 <div class="box">
  <input id="filtro" placeholder="Filtrar por OC, código o texto" size="34" oninput="pintar()">
  <span id="conteo" class="m"></span>
@@ -221,25 +221,30 @@ async function recalcular(ocs){
 }
 
 // ---------- Pantallas ----------
-let OBS=[], CARGAS=[];
+let OBS=[], CARGAS=[], ESPERA=[];
 function vistas(){
   const q=nd($('#filtro').value);
   return OBS.filter(o=>!q||nd([o.oc,o.codigo,o.descripcion,o.tipo,o.detalle].join(' ')).includes(q));
 }
 function pintar(){
-  const L=vistas();
-  $('#conteo').textContent=`${L.length} observación(es) en ${new Set(L.map(o=>o.oc)).size} OC`;
+  const L=vistas(), q=nd($('#filtro').value);
+  const E=ESPERA.filter(o=>!q||nd(o.oc).includes(q));
+  $('#espera').innerHTML=E.length?`<h3>En espera de su detalle de WMS (${E.length} OC)</h3><p class="m">Al cargar el WMS de cada OC se compara sola: si cuadra pasa al historial; si hay diferencias aparece abajo como observación hasta que la resuelvas.</p>`+
+    '<table><tr><th>OC</th><th>Productos en ERP</th><th>Unidades en ERP</th><th>Fecha ERP</th><th>Estado</th></tr>'+
+    E.map(o=>`<tr class="warn"><td>${esc(o.oc)}</td><td>${o.prod}</td><td>${o.unid}</td><td>${esc(o.fecha)}</td><td>Falta cargar WMS</td></tr>`).join('')+'</table>':'';
+  $('#conteo').textContent=`${L.length} observación(es) en ${new Set(L.map(o=>o.oc)).size} OC · ${E.length} OC esperando WMS`;
   $('#pend').innerHTML=L.length?'<table><tr><th>OC</th><th>Código</th><th>Descripción</th><th>Observación</th><th>Solicitada</th><th>Recibida WMS</th><th>ERP</th><th></th></tr>'+
     L.map(o=>`<tr class="bad"><td>${esc(o.oc)}</td><td>${esc(o.codigo)}</td><td>${esc(o.descripcion)}</td><td><b>${esc(o.tipo)}</b><br><span class="m">${esc(o.detalle)}</span></td><td>${fmt(o.cant_sol)}</td><td>${fmt(o.cant_rec)}</td><td>${fmt(o.cant_erp)}</td><td><button onclick="resolver(${o.id})">Resolver</button> <button class="danger" onclick="descartar([${o.id}])">Eliminar</button></td></tr>`).join('')+'</table>'
     :'<p class="m">Sin observaciones pendientes.</p>';
 }
 async function cargar(){
-  let obs,ord,car;
-  try{[obs,ord,car]=await Promise.all([todo('observaciones'),todo('ordenes'),todo('cargas')])}catch(e){return alert(e.message)}
+  let obs,ord,car,erpl;
+  try{[obs,ord,car,erpl]=await Promise.all([todo('observaciones'),todo('ordenes'),todo('cargas'),todo('erp_lineas')])}catch(e){return alert(e.message)}
   OBS=obs.filter(o=>o.estado==='pendiente').sort((a,b)=>a.oc.localeCompare(b.oc)||String(a.codigo).localeCompare(String(b.codigo)));
+  ESPERA=ord.filter(o=>o.tipo_dif==='Falta detalle WMS').map(o=>{
+    const ls=erpl.filter(x=>x.oc===o.oc);
+    return {oc:o.oc,prod:o.art_erp,unid:ls.reduce((t,x)=>t+(+x.cantidad||0),0),fecha:ls.map(x=>String(x.fecha).slice(0,10)).sort()[0]||''}}).sort((a,b)=>a.oc.localeCompare(b.oc));
   pintar();
-  const esp=ord.filter(o=>o.tipo_dif==='Falta detalle WMS').map(o=>o.oc).sort();
-  $('#espera').innerHTML=esp.length?`<details><summary>${esp.length} OC en ERP esperan su detalle de WMS (no son observaciones todavía)</summary>${esc(esp.join(', '))}</details>`:'';
   const h=ord.filter(o=>o.estado!=='con_diferencia').sort((a,b)=>a.oc.localeCompare(b.oc));
   $('#hist').innerHTML=h.length?'<table><tr><th>OC</th><th>Estado</th><th>Productos WMS</th><th>Productos ERP</th><th>Resuelta</th><th>Nota</th><th></th></tr>'+
     h.map(o=>`<tr><td>${esc(o.oc)}</td><td>${esc(o.estado)}</td><td>${fmt(o.art_wms)}</td><td>${fmt(o.art_erp)}</td><td>${(o.fecha_resuelta||'').slice(0,10)}</td><td>${esc(o.nota)}</td><td><button class="danger" onclick="eliminarOC('${esc(o.oc)}')">Eliminar</button></td></tr>`).join('')+'</table>':'<p class="m">Nada por aquí.</p>';
