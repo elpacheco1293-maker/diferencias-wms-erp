@@ -42,6 +42,18 @@ input[type=text],input:not([type]){padding:5px 8px;border:1px solid #c9cfe6;bord
 .m{color:#6b7280}.bad{background:#fde8e8}.ok{background:#e8f6ec}.warn{background:#fff4d6}
 textarea{width:100%;min-height:84px;border:1px solid #c9cfe6;border-radius:10px;padding:8px;font:12px ui-monospace,Consolas,monospace}
 details{margin:8px 0}summary{cursor:pointer}
+details.oc{background:#fff;border-radius:14px;margin:12px 0;padding:6px 14px 10px;box-shadow:0 14px 34px -16px rgba(30,41,99,.4)}
+details.oc>summary{display:flex;gap:12px;align-items:center;padding:8px 0;list-style:none;font-size:15px}
+details.oc>summary::-webkit-details-marker{display:none}
+details.oc table{box-shadow:none;margin-top:4px}
+.bd{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+.b-ok{background:#d8f3e0;color:#176b34}.b-bad{background:#fbd9d9;color:#a12020}.b-w{background:#fff0c2;color:#8a6200}
+details.oc>summary button{margin-left:auto}
+input.q{width:96px;text-align:right;padding:4px 6px}
+input.q.ed{background:#fff4d6;border-color:#f0b429}
+input.q:disabled{background:#f1f3f9;color:#6b7280}
+button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;filter:grayscale(.4)}
+select{padding:6px 8px;border:1px solid #c9cfe6;border-radius:8px}
 footer{margin-top:44px;text-align:center;color:#8a93a8;font-size:12px;letter-spacing:.2em}
 @media (prefers-reduced-motion:reduce){.logo3d{animation:none}*{transition:none!important}}
 </style></head><body>
@@ -50,37 +62,37 @@ footer{margin-top:44px;text-align:center;color:#8a93a8;font-size:12px;letter-spa
  <img class="logo3d" id="logo" src="data:image/jpeg;base64,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" alt="NEXOCORP">
  <div><h1 class="brand">NEXOCORP</h1><p class="sub">Conciliación WMS ↔ ERP</p></div>
 </header>
-<h2>1. Cargar datos y comparar</h2>
+<h2>1. Cargar datos</h2>
 <div class="box">
  <label>ERP · Kardex (.xlsx, puedes elegir varios) <input type="file" id="f2" accept=".xlsx,.xls" multiple></label>
  <label>WMS · detalle de OC (.csv, opcional) <input type="file" id="f1" accept=".csv" multiple></label>
  <textarea id="pegado" placeholder="O pega aquí lo que copiaste de WMS (con la fila de encabezados: Orden de compra, Cod Alternat, Cantidad solicitada, Cantidad recibida…)"></textarea>
- <button onclick="comparar()">Cargar y comparar</button>
+ <button onclick="comparar()">Cargar</button>
 </div>
 <p id="estado" class="m"></p>
 
-<h2>2. Pendientes por cuadrar</h2>
+<h2>2. Conciliación por OC</h2>
 <div class="box">
- <input id="filtro" placeholder="Filtrar por OC, código o texto" size="34" oninput="pintar()">
- <span id="conteo" class="m"></span>
- <button onclick="exportarObs()">Exportar a Excel</button>
- <button class="danger" onclick="descartar(vistas().map(o=>o.id))">Eliminar las mostradas</button>
+ <input id="filtro" placeholder="Filtrar por OC, código o producto" size="32" oninput="pintar()">
+ <select id="fest" onchange="pintar()"><option value="">Todas</option><option>Con diferencias</option><option>Cuadra</option><option>Esperando WMS</option><option>Esperando ERP</option></select>
+ <button id="bulk" onclick="aprobarTodas()">OK a todas las que cuadran</button>
+ <button onclick="exportarDif()">Exportar diferencias</button>
 </div>
-<div id="espera" class="m"></div>
-<div id="pend"></div>
+<p id="resumen" class="m"></p>
+<div id="ocs"></div>
 
 <h2>3. Historial (cuadradas y resueltas)</h2>
 <div id="hist"></div>
 
 <h2>4. Documentos cargados</h2>
-<p class="m">Si cargaste algo por error, elimínalo aquí y se recalculan las observaciones.</p>
+<p class="m">Si cargaste algo por error, elimínalo aquí.</p>
 <div id="cargas"></div>
 
 <h2>5. Mantenimiento (limpieza mensual)</h2>
 <div class="box">
  <button onclick="respaldo()">1. Descargar respaldo (Excel)</button>
  <button onclick="vaciar()" class="danger">2. Vaciar datos</button>
- <label><input type="checkbox" id="incl"> incluir también las observaciones pendientes</label>
+ <label><input type="checkbox" id="incl"> incluir también lo que está en conciliación (pendiente)</label>
 </div>
 <p id="mant" class="m"></p>
 
@@ -94,7 +106,6 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const nc=v=>String(v??'').replace(/\D/g,'').replace(/^0+/,'');           // código: solo dígitos, sin ceros a la izquierda
 const nd=v=>String(v??'').toUpperCase().replace(/\s+/g,' ').trim();      // descripción normalizada
 const num=v=>{const s=String(v??'').trim();return +(/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)?s.replace(/,/g,''):s.replace(',','.'))||0};
-const fmt=v=>v??'—';
 const csv=f=>new Promise(r=>Papa.parse(f,{header:true,skipEmptyLines:true,complete:x=>r(x.data)}));
 async function xls(f){
   const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
@@ -104,21 +115,14 @@ async function xls(f){
 }
 async function traer(t,col,vals){
   let out=[];
-  for(let i=0;i<vals.length;i+=40){
-    const ch=vals.slice(i,i+40);
-    for(let p=0;;p+=1000){
-      const {data,error}=await db.from(t).select('*').in(col,ch).range(p,p+999);
-      if(error) throw error; out=out.concat(data); if(data.length<1000) break;
-    }
+  for(const ch of lotes(vals)) for(let p=0;;p+=1000){
+    const {data,error}=await db.from(t).select('*').in(col,ch).range(p,p+999);
+    if(error) throw error; out=out.concat(data); if(data.length<1000) break;
   }
   return out;
 }
 async function todo(t){let out=[];for(let p=0;;p+=1000){const {data,error}=await db.from(t).select('*').range(p,p+999);if(error)throw error;out=out.concat(data);if(data.length<1000)break}return out}
-async function subir(t,rows,conf){
-  for(let i=0;i<rows.length;i+=500){
-    const {error}=await db.from(t).upsert(rows.slice(i,i+500),{onConflict:conf}); if(error) throw error;
-  }
-}
+async function subir(t,rows,conf){for(const ch of lotes(rows,500)){const {error}=await db.from(t).upsert(ch,{onConflict:conf}); if(error) throw error}}
 const del=async q=>{const {error}=await q;if(error)throw error};
 const lotes=(a,n=40)=>Array.from({length:Math.ceil(a.length/n)},(_,i)=>a.slice(i*n,i*n+n));
 
@@ -153,8 +157,6 @@ async function crearCarga(tipo,nombre,rows,ocDe){
   const {data,error}=await db.from('cargas').insert({tipo,nombre,filas:rows.length,ocs}).select('id').single();
   if(error) throw error; return data.id;
 }
-
-// ---------- Cargar ----------
 async function comparar(){
   const f1=[...$('#f1').files], f2=[...$('#f2').files], txt=$('#pegado').value.trim();
   if(!f1.length&&!f2.length&&!txt) return alert('Sube un archivo o pega datos de WMS');
@@ -170,136 +172,146 @@ async function comparar(){
     const Av=Object.values(A), Qv=Object.values(Q);
     const ocs=[...new Set([...Av.map(x=>x.oc),...Qv.map(x=>x.oc)])];
     const ex=await traer('ordenes','oc',ocs);
-    const done=new Set(ex.filter(o=>o.estado!=='con_diferencia').map(o=>o.oc));   // ya cuadradas o resueltas: se omiten
+    const done=new Set(ex.filter(o=>o.estado==='cuadrada'||o.estado==='resuelta').map(o=>o.oc));   // ya pasadas al historial: se omiten
     await subir('oc_lineas',Av.filter(x=>!done.has(x.oc)),'oc,codigo');
     await subir('erp_lineas',Qv.filter(x=>!done.has(x.oc)),'oc,articulo,fecha');
-    const r=await recalcular(ocs);
     $('#pegado').value='';
-    $('#estado').textContent=`Listo: ${Av.length} productos de WMS (recibido > 0) y ${Qv.length} líneas de ERP leídos. ${r.revisadas} OC revisadas: ${r.conObs} con observaciones, ${r.espera} esperando su detalle de WMS, ${r.cuadradas} cuadradas; ${done.size} omitidas por estar ya cerradas.`;
+    $('#estado').textContent=`Listo: ${Av.length} productos de WMS (recibido > 0) y ${Qv.length} líneas de ERP leídos; ${done.size} OC omitidas por estar ya en el historial.`;
     cargar();
   }catch(e){$('#estado').textContent='Error: '+(e.message||JSON.stringify(e));alert(e.message||JSON.stringify(e))}
 }
 
-// ---------- Comparación: solicitada WMS = recibida WMS = cantidad ERP ----------
-async function recalcular(ocs){
-  const ex=await traer('ordenes','oc',ocs);
-  const done=new Set(ex.filter(o=>o.estado!=='con_diferencia').map(o=>o.oc));
-  const todos=ocs.filter(oc=>!done.has(oc));
-  const WL=await traer('oc_lineas','oc',todos), EL=await traer('erp_lineas','oc',todos), OB=await traer('observaciones','oc',todos);
-  const resuelto=new Set(OB.filter(o=>o.estado==='resuelta').map(o=>o.oc+'|'+o.codigo+'|'+o.tipo));
-  const ocRes=new Set(OB.filter(o=>o.estado==='resuelta').map(o=>o.oc));
-  const byW={},byE={}; WL.forEach(x=>(byW[x.oc]??=[]).push(x)); EL.forEach(x=>(byE[x.oc]??=[]).push(x));
-  const obs=[], ords=[], vacias=[];
-  todos.forEach(oc=>{
-    const W=byW[oc]||[], E=byE[oc]||[], n0=obs.length;
-    if(!W.length&&!E.length){vacias.push(oc);return}
-    const wk={}, wd={}; W.forEach(x=>{wk[x.codigo]=x; wd[nd(x.descripcion)]=x.codigo});
-    const eq={};
-    E.forEach(x=>{const k=wk[x.articulo]?x.articulo:(wd[nd(x.descripcion)]||x.articulo); (eq[k]??={d:x.descripcion,c:0}).c+=+x.cantidad});
-    if(!W.length){ords.push({oc,art_wms:0,art_erp:Object.keys(eq).length,estado:'con_diferencia',tipo_dif:'Falta detalle WMS'});return}
-    const add=(codigo,descripcion,tipo,detalle,sol,rec,erpq)=>{
-      if(!resuelto.has(oc+'|'+codigo+'|'+tipo)) obs.push({oc,codigo,descripcion,tipo,detalle,cant_sol:sol,cant_rec:rec,cant_erp:erpq,estado:'pendiente'})};
-    W.forEach(x=>{
-      const e=eq[x.codigo], ec=e?e.c:null, d=x.descripcion;
-      if(x.recibida<x.solicitada) add(x.codigo,d,'Recibido menor al solicitado',`WMS recibió ${x.recibida} de ${x.solicitada} solicitadas (faltan ${x.solicitada-x.recibida})`,x.solicitada,x.recibida,ec);
-      else if(x.recibida>x.solicitada) add(x.codigo,d,'Recibido mayor al solicitado',`WMS recibió ${x.recibida} y se solicitaron ${x.solicitada} (sobran ${x.recibida-x.solicitada})`,x.solicitada,x.recibida,ec);
-      if(ec===null) add(x.codigo,d,'No replicó en ERP',`WMS recibió ${x.recibida} y el producto no está en ERP`,x.solicitada,x.recibida,null);
-      else if(ec!==x.recibida) add(x.codigo,d,'Cantidad distinta en ERP',`ERP tiene ${ec} y WMS recibió ${x.recibida} (dif. ${ec-x.recibida>0?'+':''}${ec-x.recibida})`,x.solicitada,x.recibida,ec);
-    });
-    Object.entries(eq).forEach(([k,e])=>{if(!wk[k]) add(k,e.d,'Sobra en ERP',`ERP tiene ${e.c} y el producto no está en la OC de WMS (o WMS lo recibió en 0)`,null,null,e.c)});
-    const pend=obs.length-n0;
-    ords.push({oc,art_wms:W.length,art_erp:Object.keys(eq).length,
-      estado:pend?'con_diferencia':(ocRes.has(oc)?'resuelta':'cuadrada'),tipo_dif:pend?pend+' observación(es)':null});
+// ---------- Armado de la conciliación (ERP · Solicitada · Recibida) ----------
+let DB={W:[],E:[],ords:[]}, AJ={}, OCM={}, CARGAS=[];
+function armar(){
+  const cerr=new Set(DB.ords.filter(o=>o.estado==='cuadrada'||o.estado==='resuelta').map(o=>o.oc));
+  const byW={},byE={}; DB.W.forEach(x=>(byW[x.oc]??=[]).push(x)); DB.E.forEach(x=>(byE[x.oc]??=[]).push(x));
+  OCM={};
+  [...new Set([...Object.keys(byW),...Object.keys(byE)])].filter(oc=>!cerr.has(oc)).sort().forEach(oc=>{
+    const W=byW[oc]||[], E=byE[oc]||[], M={}, wd={};
+    W.forEach(x=>{M[x.codigo]={codigo:x.codigo,desc:x.descripcion,o_erp:null,o_sol:+x.solicitada,o_rec:+x.recibida}; wd[nd(x.descripcion)]=x.codigo});
+    E.forEach(x=>{const k=M[x.articulo]?x.articulo:(wd[nd(x.descripcion)]||x.articulo);
+      const L=M[k]??={codigo:k,desc:x.descripcion,o_erp:null,o_sol:null,o_rec:null}; L.o_erp=(L.o_erp??0)+(+x.cantidad)});
+    const lines=Object.values(M).sort((a,b)=>String(a.desc).localeCompare(String(b.desc)));
+    lines.forEach(L=>['erp','sol','rec'].forEach(c=>{const k=`${oc}|${L.codigo}|${c}`; L[c]=k in AJ?AJ[k]:L['o_'+c]}));
+    const o=OCM[oc]={oc,lines,wms:W.length>0,erp:E.length>0}; o.estado=estadoOC(o);
   });
-  for(const ch of lotes(todos)) await del(db.from('observaciones').delete().eq('estado','pendiente').in('oc',ch));
-  for(const ch of lotes(obs,500)){const {error}=await db.from('observaciones').insert(ch); if(error) throw error}
-  await subir('ordenes',ords,'oc');
-  for(const ch of lotes(vacias)) await del(db.from('ordenes').delete().in('oc',ch));
-  const cerr=ords.filter(o=>o.estado!=='con_diferencia').map(o=>o.oc);   // de las cuadradas solo queda el resumen
-  for(const ch of lotes(cerr)){await del(db.from('oc_lineas').delete().in('oc',ch)); await del(db.from('erp_lineas').delete().in('oc',ch))}
-  return {revisadas:todos.length-vacias.length,conObs:new Set(obs.map(o=>o.oc)).size,espera:ords.filter(o=>o.tipo_dif==='Falta detalle WMS').length,cuadradas:cerr.length};
 }
-
-// ---------- Pantallas ----------
-let OBS=[], CARGAS=[], ESPERA=[];
-function vistas(){
-  const q=nd($('#filtro').value);
-  return OBS.filter(o=>!q||nd([o.oc,o.codigo,o.descripcion,o.tipo,o.detalle].join(' ')).includes(q));
+function estL(L){
+  const e=L.erp??0,s=L.sol??0,r=L.rec??0;
+  if(e===r&&s===r) return {ok:true,t:'✔ OK'};
+  if(L.sol===null&&L.rec===null) return {ok:false,t:'Solo en ERP (no está en WMS)'};
+  if(L.erp===null&&r>0) return {ok:false,t:'Falta en ERP'};
+  const m=[]; if(e!==r) m.push('ERP ≠ recibido'); if(s!==r) m.push('Solicitado ≠ recibido');
+  return {ok:false,t:m.join(' · ')};
+}
+function estadoOC(o){return !o.wms?'Esperando WMS':!o.erp?'Esperando ERP':o.lines.every(L=>estL(L).ok)?'Cuadra':'Con diferencias'}
+const BD={'Cuadra':['b-ok','✔ Cuadra'],'Con diferencias':['b-bad','Con diferencias'],'Esperando WMS':['b-w','Esperando WMS'],'Esperando ERP':['b-w','Esperando ERP']};
+function stLinea(o,L){return !o.wms?{ok:false,w:1,t:'Falta cargar WMS'}:!o.erp?{ok:false,w:1,t:'Falta cargar ERP'}:estL(L)}
+function rowHtml(o,L){
+  const st=stLinea(o,L), cls=st.ok?'ok':st.w?'warn':'bad';
+  const inp=c=>`<input type="number" step="any" class="q${`${o.oc}|${L.codigo}|${c}` in AJ?' ed':''}" value="${L[c]??''}" data-oc="${esc(o.oc)}" data-cod="${esc(L.codigo)}" data-c="${c}" onchange="ajustar(this)" ${o.wms&&o.erp?'':'disabled'}>`;
+  return `<tr id="r_${esc(o.oc)}_${esc(L.codigo)}" class="${cls}"><td>${esc(L.codigo)}</td><td>${esc(L.desc)}</td><td>${inp('erp')}</td><td>${inp('sol')}</td><td>${inp('rec')}</td><td class="st">${st.t}</td></tr>`;
+}
+function htmlOC(o){
+  return `<details class="oc" open><summary><b>${esc(o.oc)}</b> <span class="bd" id="b_${esc(o.oc)}"></span> <span class="m">${o.lines.length} producto(s)</span> <button id="ok_${esc(o.oc)}" onclick="event.preventDefault();event.stopPropagation();aprobar('${esc(o.oc)}')">OK ✔</button></summary>`+
+    `<table><tr><th>Código</th><th>Producto</th><th>ERP</th><th>Solicitada WMS</th><th>Recibida WMS</th><th>Estado</th></tr>${o.lines.map(L=>rowHtml(o,L)).join('')}</table></details>`;
+}
+function cabecera(o){
+  const [c,t]=BD[o.estado], b=document.getElementById('b_'+o.oc); if(!b) return;
+  b.className='bd '+c; b.textContent=t; document.getElementById('ok_'+o.oc).disabled=o.estado!=='Cuadra';
+}
+function resumen(){
+  const c={}; Object.values(OCM).forEach(o=>c[o.estado]=(c[o.estado]||0)+1);
+  $('#resumen').textContent=`${Object.keys(OCM).length} OC en conciliación: ${c['Cuadra']||0} cuadran · ${c['Con diferencias']||0} con diferencias · ${c['Esperando WMS']||0} esperando WMS · ${c['Esperando ERP']||0} esperando ERP`;
+  $('#bulk').disabled=!(c['Cuadra']||0); $('#bulk').textContent=`OK a todas las que cuadran (${c['Cuadra']||0})`;
 }
 function pintar(){
-  const L=vistas(), q=nd($('#filtro').value);
-  const E=ESPERA.filter(o=>!q||nd(o.oc).includes(q));
-  $('#espera').innerHTML=E.length?`<h3>En espera de su detalle de WMS (${E.length} OC)</h3><p class="m">Al cargar el WMS de cada OC se compara sola: si cuadra pasa al historial; si hay diferencias aparece abajo como observación hasta que la resuelvas.</p>`+
-    '<table><tr><th>OC</th><th>Productos en ERP</th><th>Unidades en ERP</th><th>Fecha ERP</th><th>Estado</th></tr>'+
-    E.map(o=>`<tr class="warn"><td>${esc(o.oc)}</td><td>${o.prod}</td><td>${o.unid}</td><td>${esc(o.fecha)}</td><td>Falta cargar WMS</td></tr>`).join('')+'</table>':'';
-  $('#conteo').textContent=`${L.length} observación(es) en ${new Set(L.map(o=>o.oc)).size} OC · ${E.length} OC esperando WMS`;
-  $('#pend').innerHTML=L.length?'<table><tr><th>OC</th><th>Código</th><th>Descripción</th><th>Observación</th><th>Solicitada</th><th>Recibida WMS</th><th>ERP</th><th></th></tr>'+
-    L.map(o=>`<tr class="bad"><td>${esc(o.oc)}</td><td>${esc(o.codigo)}</td><td>${esc(o.descripcion)}</td><td><b>${esc(o.tipo)}</b><br><span class="m">${esc(o.detalle)}</span></td><td>${fmt(o.cant_sol)}</td><td>${fmt(o.cant_rec)}</td><td>${fmt(o.cant_erp)}</td><td><button onclick="resolver(${o.id})">Resolver</button> <button class="danger" onclick="descartar([${o.id}])">Eliminar</button></td></tr>`).join('')+'</table>'
-    :'<p class="m">Sin observaciones pendientes.</p>';
+  const q=nd($('#filtro').value), f=$('#fest').value;
+  const L=Object.values(OCM).filter(o=>(!f||o.estado===f)&&(!q||nd(o.oc).includes(q)||o.lines.some(l=>nd(l.codigo+' '+l.desc).includes(q))));
+  $('#ocs').innerHTML=L.length?L.map(htmlOC).join(''):'<p class="m">No hay OC por mostrar. Carga el Kardex del ERP para empezar.</p>';
+  L.forEach(cabecera); resumen();
 }
-async function cargar(){
-  let obs,ord,car,erpl;
-  try{[obs,ord,car,erpl]=await Promise.all([todo('observaciones'),todo('ordenes'),todo('cargas'),todo('erp_lineas')])}catch(e){return alert(e.message)}
-  OBS=obs.filter(o=>o.estado==='pendiente').sort((a,b)=>a.oc.localeCompare(b.oc)||String(a.codigo).localeCompare(String(b.codigo)));
-  ESPERA=ord.filter(o=>o.tipo_dif==='Falta detalle WMS').map(o=>{
-    const ls=erpl.filter(x=>x.oc===o.oc);
-    return {oc:o.oc,prod:o.art_erp,unid:ls.reduce((t,x)=>t+(+x.cantidad||0),0),fecha:ls.map(x=>String(x.fecha).slice(0,10)).sort()[0]||''}}).sort((a,b)=>a.oc.localeCompare(b.oc));
-  pintar();
-  const h=ord.filter(o=>o.estado!=='con_diferencia').sort((a,b)=>a.oc.localeCompare(b.oc));
-  $('#hist').innerHTML=h.length?'<table><tr><th>OC</th><th>Estado</th><th>Productos WMS</th><th>Productos ERP</th><th>Resuelta</th><th>Nota</th><th></th></tr>'+
-    h.map(o=>`<tr><td>${esc(o.oc)}</td><td>${esc(o.estado)}</td><td>${fmt(o.art_wms)}</td><td>${fmt(o.art_erp)}</td><td>${(o.fecha_resuelta||'').slice(0,10)}</td><td>${esc(o.nota)}</td><td><button class="danger" onclick="eliminarOC('${esc(o.oc)}')">Eliminar</button></td></tr>`).join('')+'</table>':'<p class="m">Nada por aquí.</p>';
-  CARGAS=car.sort((a,b)=>String(b.creado).localeCompare(String(a.creado)));
+function refrescar(oc){
+  const o=OCM[oc]; o.estado=estadoOC(o);
+  o.lines.forEach(L=>{const tr=document.getElementById(`r_${oc}_${L.codigo}`); if(!tr) return; const st=stLinea(o,L);
+    tr.className=st.ok?'ok':st.w?'warn':'bad'; tr.querySelector('.st').textContent=st.t});
+  cabecera(o); resumen();
+}
+// Editar cualquiera de los 3 valores: se guarda como ajuste y la OC se vuelve a evaluar
+async function ajustar(el){
+  const {oc,cod,c}=el.dataset, o=OCM[oc], L=o.lines.find(x=>x.codigo===cod), k=`${oc}|${cod}|${c}`;
+  const v=el.value===''?0:+el.value, orig=L['o_'+c];
+  try{
+    if((orig??0)===v){ delete AJ[k]; await del(db.from('ajustes').delete().match({oc,codigo:cod,campo:c})); L[c]=orig; el.value=orig??''; }
+    else{ AJ[k]=v; await subir('ajustes',[{oc,codigo:cod,campo:c,valor:v}],'oc,codigo,campo'); L[c]=v; }
+    el.classList.toggle('ed',k in AJ); refrescar(oc);
+  }catch(e){alert(e.message)}
+}
+async function aprobar(oc,sinRecargar){
+  const o=OCM[oc]; if(!o||o.estado!=='Cuadra') return;
+  try{
+    const ajustes=Object.entries(AJ).filter(([k])=>k.startsWith(oc+'|')).map(([k,v])=>{const [,codigo,campo]=k.split('|'); const L=o.lines.find(x=>x.codigo===codigo); return {codigo,campo,antes:L?L['o_'+campo]:null,despues:v}});
+    const lineas=o.lines.map(L=>({codigo:L.codigo,descripcion:L.desc,erp:L.erp,solicitada:L.sol,recibida:L.rec}));
+    await subir('ordenes',[{oc,art_wms:o.lines.length,art_erp:o.lines.length,estado:ajustes.length?'resuelta':'cuadrada',tipo_dif:null,
+      nota:ajustes.length?`${ajustes.length} ajuste(s) manual(es)`:null,fecha_resuelta:new Date().toISOString(),huella:{lineas,ajustes}}],'oc');
+    for(const t of ['oc_lineas','erp_lineas','ajustes']) await del(db.from(t).delete().eq('oc',oc));
+    if(!sinRecargar) cargar();
+  }catch(e){alert(e.message)}
+}
+async function aprobarTodas(){
+  const L=Object.values(OCM).filter(o=>o.estado==='Cuadra'); if(!L.length) return;
+  if(!confirm(`¿Dar OK a ${L.length} OC que cuadran y pasarlas al historial?`)) return;
+  for(const o of L) await aprobar(o.oc,true);
+  cargar();
+}
+function exportarDif(){
+  const rows=[]; Object.values(OCM).filter(o=>o.estado==='Con diferencias').forEach(o=>o.lines.forEach(L=>{const s=estL(L); if(!s.ok) rows.push({OC:o.oc,Código:L.codigo,Producto:L.desc,ERP:L.erp,Solicitada:L.sol,Recibida:L.rec,Observación:s.t})}));
+  if(!rows.length) return alert('No hay diferencias para exportar');
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Diferencias');
+  XLSX.writeFile(wb,`diferencias_${new Date().toISOString().slice(0,10)}.xlsx`);
+}
+
+// ---------- Historial y documentos ----------
+const fmt=v=>v??'—';
+function pintarHist(){
+  const h=DB.ords.filter(o=>o.estado==='cuadrada'||o.estado==='resuelta').sort((a,b)=>String(b.fecha_resuelta).localeCompare(String(a.fecha_resuelta)));
+  $('#hist').innerHTML=h.length?'<table><tr><th>OC</th><th>Estado</th><th>Productos</th><th>Fecha OK</th><th>Ajustes manuales</th><th></th></tr>'+h.map(o=>{
+    const aj=(o.huella&&o.huella.ajustes)||[];
+    const det=aj.length?`<details><summary>${aj.length} ajuste(s)</summary>${aj.map(a=>`${esc(a.codigo)} · ${esc(a.campo)}: ${fmt(a.antes)} → ${a.despues}`).join('<br>')}</details>`:'—';
+    return `<tr><td>${esc(o.oc)}</td><td>${esc(o.estado)}</td><td>${fmt(o.art_wms)}</td><td>${(o.fecha_resuelta||'').slice(0,10)}</td><td>${det}</td><td><button class="danger" onclick="eliminarOC('${esc(o.oc)}')">Eliminar</button></td></tr>`}).join('')+'</table>':'<p class="m">Nada por aquí.</p>';
+}
+function pintarCargas(){
   $('#cargas').innerHTML=CARGAS.length?'<table><tr><th>Fecha</th><th>Tipo</th><th>Documento</th><th>Filas</th><th>OC</th><th></th></tr>'+
     CARGAS.map(c=>`<tr><td>${esc(String(c.creado).slice(0,16).replace('T',' '))}</td><td>${esc(c.tipo)}</td><td>${esc(c.nombre)}</td><td>${c.filas}</td><td>${(c.ocs||[]).length}</td><td><button class="danger" onclick="eliminarCarga(${c.id})">Eliminar</button></td></tr>`).join('')+'</table>':'<p class="m">Aún no hay documentos cargados.</p>';
 }
-async function cerrarObs(ids,nota){
-  const ahora=new Date().toISOString(), sel=OBS.filter(x=>ids.includes(x.id));
-  for(const ch of lotes(ids,200)) await del(db.from('observaciones').update({estado:'resuelta',nota,resuelta_en:ahora}).in('id',ch));
-  for(const oc of new Set(sel.map(o=>o.oc))){
-    const {data}=await db.from('observaciones').select('id').eq('oc',oc).eq('estado','pendiente');
-    if(!data.length){   // ya no quedan pendientes: la OC pasa al historial
-      await del(db.from('ordenes').update({estado:'resuelta',fecha_resuelta:ahora,nota,tipo_dif:null}).eq('oc',oc));
-      await del(db.from('oc_lineas').delete().eq('oc',oc)); await del(db.from('erp_lineas').delete().eq('oc',oc));
-    }
-  }
-}
-async function resolver(id){
-  const nota=prompt('Nota de cómo se solucionó (opcional):'); if(nota===null) return;
-  try{await cerrarObs([id],nota); cargar()}catch(e){alert(e.message)}
-}
-async function descartar(ids){
-  if(!ids.length) return;
-  if(!confirm(`¿Eliminar ${ids.length} observación(es) de pendientes?\nNo volverán a aparecer al cargar más archivos.`)) return;
-  try{await cerrarObs(ids,'Eliminada manualmente'); cargar()}catch(e){alert(e.message)}
+async function cargar(){
+  const y=window.scrollY;
+  try{
+    const [w,e,aj,ord,car]=await Promise.all([todo('oc_lineas'),todo('erp_lineas'),todo('ajustes'),todo('ordenes'),todo('cargas')]);
+    DB={W:w,E:e,ords:ord}; AJ={}; aj.forEach(a=>AJ[`${a.oc}|${a.codigo}|${a.campo}`]=+a.valor);
+    CARGAS=car.sort((a,b)=>String(b.creado).localeCompare(String(a.creado)));
+    armar(); pintar(); pintarHist(); pintarCargas(); window.scrollTo(0,y);
+  }catch(e){alert(e.message)}
 }
 async function eliminarCarga(id){
   const c=CARGAS.find(x=>x.id===id); if(!c) return;
-  if(!confirm(`¿Eliminar "${c.nombre}" (${c.tipo}, ${c.filas} filas)?\n\nSe quitan sus datos y se recalculan las observaciones. Las OC que ya cuadraron o se resolvieron siguen en el historial: elimínalas desde allí si quieres volver a cargarlas.`)) return;
+  if(!confirm(`¿Eliminar "${c.nombre}" (${c.tipo}, ${c.filas} filas)?\n\nSe quitan sus datos de la conciliación. Las OC que ya pasaste al historial no se tocan: elimínalas desde allí si quieres volver a cargarlas.`)) return;
   try{
     await del(db.from('oc_lineas').delete().eq('carga_id',id)); await del(db.from('erp_lineas').delete().eq('carga_id',id));
-    await del(db.from('cargas').delete().eq('id',id));
-    await recalcular(c.ocs||[]);
-    cargar();
+    await del(db.from('cargas').delete().eq('id',id)); cargar();
   }catch(e){alert(e.message)}
 }
 async function eliminarOC(oc){
   if(!confirm(`¿Eliminar ${oc} del historial?\nSe borra todo lo guardado de esa OC y podrás volver a cargarla.`)) return;
-  try{
-    for(const t of ['observaciones','oc_lineas','erp_lineas','ordenes']) await del(db.from(t).delete().eq('oc',oc));
-    cargar();
-  }catch(e){alert(e.message)}
-}
-function exportarObs(){
-  const rows=OBS.map(o=>({OC:o.oc,Código:o.codigo,Descripción:o.descripcion,Observación:o.tipo,Detalle:o.detalle,Solicitada:o.cant_sol,'Recibida WMS':o.cant_rec,ERP:o.cant_erp}));
-  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Observaciones');
-  XLSX.writeFile(wb,`observaciones_${new Date().toISOString().slice(0,10)}.xlsx`);
+  try{for(const t of ['ajustes','oc_lineas','erp_lineas','ordenes']) await del(db.from(t).delete().eq('oc',oc)); cargar()}catch(e){alert(e.message)}
 }
 
 // ---------- Mantenimiento: respaldo en Excel y limpieza ----------
 let respaldoListo=false;
 async function respaldo(){
   try{
-    const T=['ordenes','oc_lineas','erp_lineas','observaciones','cargas'], n={}, wb=XLSX.utils.book_new();
+    const T=['ordenes','oc_lineas','erp_lineas','ajustes','cargas'], n={}, wb=XLSX.utils.book_new();
     for(const t of T){
       const d=await todo(t); n[t]=d.length;
       XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d.map(r=>Object.fromEntries(Object.entries(r).map(([k,v])=>[k,v!==null&&typeof v==='object'?JSON.stringify(v):v])))),t);
@@ -312,18 +324,13 @@ async function respaldo(){
 async function vaciar(){
   if(!respaldoListo) return alert('Primero pulsa "Descargar respaldo" y guarda el archivo.');
   const todoPend=$('#incl').checked;
-  const msg=todoPend?'Se borrarán TODOS los datos, incluidas las observaciones pendientes.':'Se borrarán las OC cuadradas y resueltas. Las pendientes se conservan.';
+  const msg=todoPend?'Se borrarán TODOS los datos, incluido lo que está pendiente en la conciliación.':'Se borrará el historial de OC cuadradas y resueltas. Lo pendiente se conserva.';
   if(prompt(msg+'\n\nEscribe VACIAR para confirmar:')!=='VACIAR') return;
   try{
     if(todoPend){
-      await del(db.from('observaciones').delete().gte('id',0)); await del(db.from('erp_lineas').delete().gte('id',0));
+      await del(db.from('ajustes').delete().neq('oc','')); await del(db.from('erp_lineas').delete().gte('id',0));
       await del(db.from('oc_lineas').delete().neq('oc','')); await del(db.from('ordenes').delete().neq('oc',''));
-    }else{
-      const ocs=(await todo('ordenes')).filter(o=>o.estado!=='con_diferencia').map(o=>o.oc);
-      for(const ch of lotes(ocs)){
-        await del(db.from('observaciones').delete().in('oc',ch)); await del(db.from('erp_lineas').delete().in('oc',ch));
-        await del(db.from('oc_lineas').delete().in('oc',ch)); await del(db.from('ordenes').delete().in('oc',ch));}
-    }
+    }else await del(db.from('ordenes').delete().in('estado',['cuadrada','resuelta']));
     await del(db.from('cargas').delete().gte('id',0));
     respaldoListo=false; $('#mant').textContent='Datos vaciados.'; cargar();
   }catch(e){alert(e.message||JSON.stringify(e))}
