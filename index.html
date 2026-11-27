@@ -52,6 +52,8 @@ details.oc>summary button{margin-left:auto}
 input.q{width:96px;text-align:right;padding:4px 6px}
 input.q.ed{background:#fff4d6;border-color:#f0b429}
 input.q:disabled{background:#f1f3f9;color:#6b7280}
+details.oc>summary button+button{margin-left:6px}
+.b-new{background:#dbeafe;color:#1e40af}
 button:disabled{opacity:.4;cursor:not-allowed;box-shadow:none;filter:grayscale(.4)}
 select{padding:6px 8px;border:1px solid #c9cfe6;border-radius:8px}
 footer{margin-top:44px;text-align:center;color:#8a93a8;font-size:12px;letter-spacing:.2em}
@@ -86,6 +88,7 @@ footer{margin-top:44px;text-align:center;color:#8a93a8;font-size:12px;letter-spa
 
 <h2>4. Documentos cargados</h2>
 <p class="m">Si cargaste algo por error, elimínalo aquí.</p>
+<div class="box"><button onclick="limpiarHuerfanos()">Limpiar datos de documentos ya eliminados</button></div>
 <div id="cargas"></div>
 
 <h2>5. Mantenimiento (limpieza mensual)</h2>
@@ -140,6 +143,8 @@ function leerPegado(txt){
   if(!P.length) throw new Error('No hay datos pegados');
   if(nd(P[0][0])==='ORDEN DE COMPRA')   // trae títulos: se leen por nombre de columna
     return leerWms(P.slice(1).map(r=>Object.fromEntries(P[0].map((k,i)=>[k,r[i]??'']))));
+  const sinOC=P.find(r=>!/^OC-\d+$/i.test(String(r[0]).trim()));
+  if(sinOC) throw new Error(`La primera columna debe ser la OC (ej. OC-00622027) y encontré "${String(sinOC[0]).trim()}". Revisa que copiaste desde la columna "Orden de compra".`);
   const mal=P.find(r=>r.length<7);
   if(mal) throw new Error(`Esperaba al menos 7 columnas separadas por tabulación (OC, Cod Alternat, Código proveedor, Descripción, Solicitada, Pack, Recibida…) y una fila trae ${mal.length}. Copia las celdas directamente desde la tabla de WMS o Excel.`);
   return P.map(r=>Object.fromEntries(COLS_WMS.map((k,i)=>[k,r[i]??''])));
@@ -188,7 +193,7 @@ async function comparar(){
     await subir('erp_lineas',Qv.filter(x=>!done.has(x.oc)),'oc,articulo,fecha');
     $('#pegado').value='';
     $('#estado').textContent=`Listo: ${Av.length} productos de WMS (recibido > 0) y ${Qv.length} líneas de ERP leídos; ${done.size} OC omitidas por estar ya en el historial.`;
-    cargar();
+    cargar(true);
   }catch(e){$('#estado').textContent='Error: '+(e.message||JSON.stringify(e));alert(e.message||JSON.stringify(e))}
 }
 
@@ -207,6 +212,11 @@ function armar(){
     lines.forEach(L=>['erp','sol','rec'].forEach(c=>{const k=`${oc}|${L.codigo}|${c}`; L[c]=k in AJ?AJ[k]:L['o_'+c]}));
     const o=OCM[oc]={oc,lines,wms:W.length>0,erp:E.length>0}; o.estado=estadoOC(o);
   });
+  // lo último que cargaste va primero
+  const t0=CARGAS.length?new Date(CARGAS[0].creado).getTime():0, rank={}, ult=new Set();
+  CARGAS.forEach((c,i)=>(c.ocs||[]).forEach(oc=>{if(!(oc in rank)) rank[oc]=i; if(t0-new Date(c.creado).getTime()<120000) ult.add(oc)}));
+  const orden=Object.values(OCM).sort((a,b)=>(rank[a.oc]??1e9)-(rank[b.oc]??1e9)||a.oc.localeCompare(b.oc));
+  OCM={}; orden.forEach(o=>{o.nuevo=ult.has(o.oc); OCM[o.oc]=o});
 }
 function estL(L){
   const e=L.erp??0,s=L.sol??0,r=L.rec??0;
@@ -224,8 +234,8 @@ function rowHtml(o,L){
   const inp=c=>`<input type="number" step="any" class="q${`${o.oc}|${L.codigo}|${c}` in AJ?' ed':''}" value="${L[c]??''}" data-oc="${esc(o.oc)}" data-cod="${esc(L.codigo)}" data-c="${c}" onchange="ajustar(this)" ${o.wms&&o.erp?'':'disabled'}>`;
   return `<tr id="r_${esc(o.oc)}_${esc(L.codigo)}" class="${cls}"><td>${esc(L.codigo)}</td><td>${esc(L.desc)}</td><td>${inp('erp')}</td><td>${inp('sol')}</td><td>${inp('rec')}</td><td class="st">${st.t}</td></tr>`;
 }
-function htmlOC(o){
-  return `<details class="oc" open><summary><b>${esc(o.oc)}</b> <span class="bd" id="b_${esc(o.oc)}"></span> <span class="m">${o.lines.length} producto(s)</span> <button id="ok_${esc(o.oc)}" onclick="event.preventDefault();event.stopPropagation();aprobar('${esc(o.oc)}')">OK ✔</button></summary>`+
+function htmlOC(o,abrir){
+  return `<details class="oc"${abrir?' open':''}><summary><b>${esc(o.oc)}</b> <span class="bd" id="b_${esc(o.oc)}"></span>${o.nuevo?' <span class="bd b-new">Última carga</span>':''} <span class="m">${o.lines.length} producto(s)</span> <button id="ok_${esc(o.oc)}" onclick="event.preventDefault();event.stopPropagation();aprobar('${esc(o.oc)}')">OK ✔</button><button class="danger" onclick="event.preventDefault();event.stopPropagation();quitarOC('${esc(o.oc)}')">Quitar</button></summary>`+
     `<table><tr><th>Código</th><th>Producto</th><th>ERP</th><th>Solicitada WMS</th><th>Recibida WMS</th><th>Estado</th></tr>${o.lines.map(L=>rowHtml(o,L)).join('')}</table></details>`;
 }
 function cabecera(o){
@@ -240,7 +250,7 @@ function resumen(){
 function pintar(){
   const q=nd($('#filtro').value), f=$('#fest').value;
   const L=Object.values(OCM).filter(o=>(!f||o.estado===f)&&(!q||nd(o.oc).includes(q)||o.lines.some(l=>nd(l.codigo+' '+l.desc).includes(q))));
-  $('#ocs').innerHTML=L.length?L.map(htmlOC).join(''):'<p class="m">No hay OC por mostrar. Carga el Kardex del ERP para empezar.</p>';
+  $('#ocs').innerHTML=L.length?L.map(o=>htmlOC(o,!!q)).join(''):'<p class="m">No hay OC por mostrar. Carga el Kardex del ERP para empezar.</p>';
   L.forEach(cabecera); resumen();
 }
 function refrescar(oc){
@@ -296,13 +306,18 @@ function pintarCargas(){
   $('#cargas').innerHTML=CARGAS.length?'<table><tr><th>Fecha</th><th>Tipo</th><th>Documento</th><th>Filas</th><th>OC</th><th></th></tr>'+
     CARGAS.map(c=>`<tr><td>${esc(String(c.creado).slice(0,16).replace('T',' '))}</td><td>${esc(c.tipo)}</td><td>${esc(c.nombre)}</td><td>${c.filas}</td><td>${(c.ocs||[]).length}</td><td><button class="danger" onclick="eliminarCarga(${c.id})">Eliminar</button></td></tr>`).join('')+'</table>':'<p class="m">Aún no hay documentos cargados.</p>';
 }
-async function cargar(){
+async function cargar(auto){
   const y=window.scrollY;
   try{
     const [w,e,aj,ord,car]=await Promise.all([todo('oc_lineas'),todo('erp_lineas'),todo('ajustes'),todo('ordenes'),todo('cargas')]);
     DB={W:w,E:e,ords:ord}; AJ={}; aj.forEach(a=>AJ[`${a.oc}|${a.codigo}|${a.campo}`]=+a.valor);
     CARGAS=car.sort((a,b)=>String(b.creado).localeCompare(String(a.creado)));
-    armar(); pintar(); pintarHist(); pintarCargas(); window.scrollTo(0,y);
+    armar();
+    if(auto){   // las que cuadran sin ajustes pasan solas al historial
+      const L=Object.values(OCM).filter(o=>o.estado==='Cuadra'&&!Object.keys(AJ).some(k=>k.startsWith(o.oc+'|')));
+      if(L.length){for(const o of L) await aprobar(o.oc,true); $('#estado').textContent+=` ${L.length} OC cuadraron y pasaron al historial.`; return cargar(false)}
+    }
+    pintar(); pintarHist(); pintarCargas(); window.scrollTo(0,y);
   }catch(e){alert(e.message)}
 }
 async function eliminarCarga(id){
@@ -311,6 +326,24 @@ async function eliminarCarga(id){
   try{
     await del(db.from('oc_lineas').delete().eq('carga_id',id)); await del(db.from('erp_lineas').delete().eq('carga_id',id));
     await del(db.from('cargas').delete().eq('id',id)); cargar();
+  }catch(e){alert(e.message)}
+}
+async function quitarOC(oc){
+  if(!confirm(`¿Quitar ${oc} de la conciliación?\nSe borran sus datos cargados y sus ajustes.`)) return;
+  try{for(const t of ['ajustes','oc_lineas','erp_lineas']) await del(db.from(t).delete().eq('oc',oc)); cargar()}catch(e){alert(e.message)}
+}
+async function limpiarHuerfanos(){
+  if(!confirm('Se quitarán de la conciliación los datos que ya no pertenecen a ningún documento cargado (por ejemplo, los de documentos que eliminaste antes). ¿Continuar?')) return;
+  try{
+    const ids=CARGAS.map(c=>c.id);
+    for(const t of ['oc_lineas','erp_lineas']){
+      await del(db.from(t).delete().is('carga_id',null));
+      await del(ids.length?db.from(t).delete().not('carga_id','in','('+ids.join(',')+')'):db.from(t).delete().not('carga_id','is',null));
+    }
+    const [w,e,aj]=await Promise.all([todo('oc_lineas'),todo('erp_lineas'),todo('ajustes')]);
+    const vivas=new Set([...w.map(x=>x.oc),...e.map(x=>x.oc)]);
+    for(const ch of lotes([...new Set(aj.map(a=>a.oc))].filter(oc=>!vivas.has(oc)))) await del(db.from('ajustes').delete().in('oc',ch));
+    cargar();
   }catch(e){alert(e.message)}
 }
 async function eliminarOC(oc){
