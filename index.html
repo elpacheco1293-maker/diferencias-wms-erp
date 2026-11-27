@@ -66,7 +66,7 @@ footer{margin-top:44px;text-align:center;color:#8a93a8;font-size:12px;letter-spa
 <div class="box">
  <label>ERP · Kardex (.xlsx, puedes elegir varios) <input type="file" id="f2" accept=".xlsx,.xls" multiple></label>
  <label>WMS · detalle de OC (.csv, opcional) <input type="file" id="f1" accept=".csv" multiple></label>
- <textarea id="pegado" placeholder="O pega aquí lo que copiaste de WMS (con la fila de encabezados: Orden de compra, Cod Alternat, Cantidad solicitada, Cantidad recibida…)"></textarea>
+ <textarea id="pegado" placeholder="O pega aquí filas copiadas de WMS (sin títulos): Orden de compra, Cod Alternat, Código de proveedor, Descripción, Cant. solicitada, Cant x Pack, Cant. recibida, Costo, Carta?, Destino. Para archivos grandes usa el .csv."></textarea>
  <button onclick="comparar()">Cargar</button>
 </div>
 <p id="estado" class="m"></p>
@@ -133,6 +133,17 @@ function leerWms(rows){
     throw new Error('No reconozco las columnas del WMS. Detecté: '+Object.keys(R[0]).join(', '));
   return R;
 }
+// Pegado desde WMS: con o sin fila de títulos (si no hay títulos, se asumen las columnas en el orden de WMS)
+const COLS_WMS=['Orden de compra','Cod Alternat','Código de artículo de proveedor','Descripcion','Cantidad solicitada','Cant x Pack Est','Cantidad recibida','Costo unitario','Carta?','Destino de gastos'];
+function leerPegado(txt){
+  const P=Papa.parse(txt,{header:false,skipEmptyLines:true,delimiter:txt.includes('\t')?'\t':''}).data;
+  if(!P.length) throw new Error('No hay datos pegados');
+  if(nd(P[0][0])==='ORDEN DE COMPRA')   // trae títulos: se leen por nombre de columna
+    return leerWms(P.slice(1).map(r=>Object.fromEntries(P[0].map((k,i)=>[k,r[i]??'']))));
+  const mal=P.find(r=>r.length<7);
+  if(mal) throw new Error(`Esperaba al menos 7 columnas separadas por tabulación (OC, Cod Alternat, Código proveedor, Descripción, Solicitada, Pack, Recibida…) y una fila trae ${mal.length}. Copia las celdas directamente desde la tabla de WMS o Excel.`);
+  return P.map(r=>Object.fromEntries(COLS_WMS.map((k,i)=>[k,r[i]??''])));
+}
 function aggW(rows,carga){
   const A={};
   rows.forEach(r=>{
@@ -164,7 +175,7 @@ async function comparar(){
   try{
     const wsrc=[], esrc=[];
     for(const f of f1) wsrc.push({nombre:f.name,rows:leerWms(await csv(f))});
-    if(txt) wsrc.push({nombre:'Pegado '+new Date().toLocaleString('es'),rows:leerWms(Papa.parse(txt,{header:true,skipEmptyLines:true}).data)});
+    if(txt) wsrc.push({nombre:'Pegado '+new Date().toLocaleString('es'),rows:leerPegado(txt)});
     for(const f of f2) esrc.push({nombre:f.name,rows:await xls(f)});
     const A={}, Q={};
     for(const s of wsrc){const id=await crearCarga('WMS',s.nombre,s.rows,r=>(r['Orden de compra']||'').trim()); Object.assign(A,aggW(s.rows,id))}
